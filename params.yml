@@ -1,0 +1,14 @@
+---
+max_pawn_bonus: 100
+bishop_value: 325
+knight_value: 315
+max_knight_bonus: 10
+rook_value: 533
+queen_value: 950
+center_control_bonus: 30
+lonely_king_cornered_penalty_factor: 1
+max_pawn_protection_reward: 25
+max_king_corner_reward: 50
+many_moves_bonus: 300
+doubled_pawn_penalty: 50
+double_bishop_reward: 20
