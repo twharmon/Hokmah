@@ -77,24 +77,24 @@ fn minimax(
     if depth == 0 {
         let mut c = cache.lock().unwrap();
         match c.get(g.hash) {
-            Some(e) => return e,
+            Some(e) => return (e as f32 * (1f32 + (depth as f32 / 100f32))) as i16,
             None => (),
         };
         let eval = evaluate(g, params, maximizing_player_color);
         c.set(g.hash, eval);
-        return eval;
+        return (eval as f32 * (1f32 + (depth as f32 / 100f32))) as i16;
     }
 
     let mut valid_plies = g.get_valid_plies();
     if valid_plies.is_empty() {
         let mut c = cache.lock().unwrap();
         match c.get(g.hash) {
-            Some(e) => return e,
+            Some(e) => return (e as f32 * (1f32 + (depth as f32 / 100f32))) as i16,
             None => (),
         };
-        let eval = (evaluate(g, params, maximizing_player_color) as f32 * (1f32 + (depth as f32 / 100f32))) as i16;
+        let eval = evaluate(g, params, maximizing_player_color);
         c.set(g.hash, eval);
-        return eval;
+        return (eval as f32 * (1f32 + (depth as f32 / 100f32))) as i16;
     }
 
     valid_plies.best_first_sort(depth, g, future_cache);

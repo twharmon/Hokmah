@@ -895,10 +895,10 @@ impl Game {
                         Kind::Rook => self.count_valid_rook_plies(pos),
                         Kind::Knight => self.count_valid_knight_plies(pos),
                         Kind::Bishop => self.count_valid_bishop_plies(pos),
-                        Kind::Queen => {
-                            self.count_valid_rook_plies(pos)
-                                + self.count_valid_bishop_plies(pos)
-                        }
+                        // Kind::Queen => {
+                        //     self.count_valid_rook_plies(pos)
+                        //         + self.count_valid_bishop_plies(pos)
+                        // }
                         _ => 0,
                     };
                     if switched_turns {

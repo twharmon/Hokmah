@@ -93,7 +93,7 @@ pub fn evaluate(game: &mut Game, params: &Params, maximizing_player_color: Color
     
     if player_naive_material + enemy_naive_material > 40 {
         let valid_ply_cnt_diff = game.valid_non_king_plies_diff();
-        value += ((valid_ply_cnt_diff as f32 / 20f32).min(1f32) * params.many_moves_bonus as f32) as i16;
+        value += ((valid_ply_cnt_diff as f32 / 15f32).min(1f32) * params.many_moves_bonus as f32) as i16;
     }
 
     if player_naive_material < 10 {
