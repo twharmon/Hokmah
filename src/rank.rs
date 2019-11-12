@@ -68,19 +68,6 @@ impl Rank {
             Direction::None => Some(*self),
         }
     }
-
-    pub fn hash(&self) -> u64 {
-        match self {
-            Rank::One => 17783895526275986802,
-            Rank::Two => 4833246216619820967,
-            Rank::Three => 4440083055930105573,
-            Rank::Four => 767873876851926362,
-            Rank::Five => 8818440312199795523,
-            Rank::Six => 14214638289766147609,
-            Rank::Seven => 8667694656679311542,
-            Rank::Eight => 6790052024758993717,
-        }
-    }
 }
 
 impl std::fmt::Display for Rank {

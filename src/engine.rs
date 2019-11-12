@@ -7,29 +7,25 @@ use crate::ply::Ply;
 use crate::traits::BestFirstSort;
 use crossbeam::crossbeam_channel;
 use std::time::{Duration, SystemTime};
-use std::ops::{Sub, Div, BitXor};
-use crate::cache::Cache;
-use std::sync::{Arc, Mutex};
+use std::ops::{Sub, Div};
+use std::i16;
 
-pub fn suggest(g: Game, params: Params, limit: Duration) -> (Ply, i16) {    
+pub fn suggest(g: Game, params: Params, limit: Duration) -> Ply {    
     let start = SystemTime::now();
     let mut depth = 1;
-    let cache = Cache::new();
-    let future_cache = Cache::new();
-
-    let (mut ply, mut eval) = search(g.clone(), params, depth, 0, &cache, &future_cache);
+    let mut ply = search(g.clone(), params, depth, 0);
     
     while SystemTime::now().sub(limit.div(4)) < start {
         depth += 1;
-        let (p, e) = search(g.clone(), params, depth, 0, &cache, &future_cache);
-        ply = p;
-        eval = e;
+        ply = search(g.clone(), params, depth, 0);
     }
 
-    (ply, eval)
+    println!("searched {} deep in {} secs", depth, SystemTime::now().duration_since(start).unwrap().as_secs_f32());
+
+    ply
 }
 
-pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc<Mutex<Cache>>, future_cache: &Arc<Mutex<Cache>>) -> (Ply, i16) {
+pub fn search(mut g: Game, params: Params, depth: u8, extension: u8) -> Ply {
     let valid_plies = g.get_valid_plies();
     let valid_ply_cnt = valid_plies.len();
 
@@ -37,17 +33,15 @@ pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc
     for ply in valid_plies {
         let sender = s.clone();
         let mut g = g.clone();
-        let cache = cache.clone();
-        let future_cache = future_cache.clone();
         std::thread::spawn(move || {
             let color = g.turn;
             g.do_ply(ply, false);
-            let value = minimax(depth - 1, &mut g, &params, -30_000, 30_000, color, extension, &cache, &future_cache);
+            let value = minimax(depth - 1, &mut g, &params, -30_000, 30_000, color, extension);
             sender.send((ply, value)).expect("unable to send");
         });
     }
 
-    let mut best_eval = -30_000;
+    let mut best_eval = i16::MIN;
     let mut best_plies_found = Vec::new();
     for _ in 0..valid_ply_cnt {
         let (ply, value) = r.recv().expect("unable to receive");
@@ -60,7 +54,7 @@ pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc
         }
     }
 
-    (*best_plies_found.first().unwrap(), best_eval)
+    *best_plies_found.first().unwrap()
 }
 
 fn minimax(
@@ -69,37 +63,35 @@ fn minimax(
     params: &Params,
     mut alpha: i16,
     mut beta: i16,
-    maximizing_player_color: Color,
+    maximizing_color: Color,
     mut extension: u8,
-    cache: &Arc<Mutex<Cache>>,
-    future_cache: &Arc<Mutex<Cache>>,
 ) -> i16 {
     if depth == 0 {
-        let mut c = cache.lock().unwrap();
-        match c.get(g.hash) {
-            Some(e) => return (e as f32 * (1f32 + (depth as f32 / 100f32))) as i16,
-            None => (),
-        };
-        let eval = evaluate(g, params, maximizing_player_color);
-        c.set(g.hash, eval);
+        // let key = g.hash.bitxor(maximizing_color.hash());
+        // match cache.lock().unwrap().get(key) {
+        //     Some(e) => return (e as f32 * (1f32 + (depth as f32 / 100f32))) as i16,
+        //     None => (),
+        // };
+        let eval = evaluate(g, params, maximizing_color);
+        // cache.lock().unwrap().set(key, eval);
         return (eval as f32 * (1f32 + (depth as f32 / 100f32))) as i16;
     }
 
     let mut valid_plies = g.get_valid_plies();
     if valid_plies.is_empty() {
-        let mut c = cache.lock().unwrap();
-        match c.get(g.hash) {
-            Some(e) => return (e as f32 * (1f32 + (depth as f32 / 100f32))) as i16,
-            None => (),
-        };
-        let eval = evaluate(g, params, maximizing_player_color);
-        c.set(g.hash, eval);
+        // let key = g.hash.bitxor(maximizing_color.hash());
+        // match cache.lock().unwrap().get(key) {
+        //     Some(e) => return (e as f32 * (1f32 + (depth as f32 / 100f32))) as i16,
+        //     None => (),
+        // };
+        let eval = evaluate(g, params, maximizing_color);
+        // cache.lock().unwrap().set(key, eval);
         return (eval as f32 * (1f32 + (depth as f32 / 100f32))) as i16;
     }
 
-    valid_plies.best_first_sort(depth, g, future_cache);
+    valid_plies.best_first_sort();
 
-    if maximizing_player_color == g.turn {
+    if maximizing_color == g.turn {
         let mut best_ply = -30_000;
         for ply in valid_plies {
             g.do_ply(ply, false);
@@ -123,16 +115,10 @@ fn minimax(
                 params,
                 alpha,
                 beta,
-                maximizing_player_color,
+                maximizing_color,
                 extension,
-                cache,
-                future_cache,
             );
             best_ply = best_ply.max(eval);
-            if depth > 2 {
-                let mut c = future_cache.lock().unwrap();
-                c.set(g.hash.bitxor(g.turn.hash()), eval);
-            }
             g.revert_last_ply();
             alpha = alpha.max(best_ply);
             if beta <= alpha {
@@ -164,16 +150,10 @@ fn minimax(
                 params,
                 alpha,
                 beta,
-                maximizing_player_color,
+                maximizing_color,
                 extension,
-                cache,
-                future_cache,
             );
             best_ply = best_ply.min(eval);
-            if depth > 2 {
-                let mut c = future_cache.lock().unwrap();
-                c.set(g.hash.bitxor(g.turn.hash()), eval);
-            }
             g.revert_last_ply();
             beta = beta.min(best_ply);
             if beta <= alpha {
@@ -188,7 +168,7 @@ fn minimax(
 mod tests {
     use crate::tests::make_game;
     use crate::params::Params;
-    use crate::cache::Cache;
+    // use crate::cache::Cache;
     use super::search;
     use test::Bencher;
 
@@ -198,48 +178,48 @@ mod tests {
     #[test]
     fn it_chooses_fools_mate() {
         let g = make_game("f4 e5 g4");
-        let cache = Cache::new();
-        let future_cache = Cache::new();
-        let (ply, eval) = search(g, Params::get(), 2, 0, &cache, &future_cache);
-        println!("eval: {}", eval);
+        let ply = search(g, Params::get(), 2, 0);
         assert_eq!(ply.uci(), String::from("d8h4"));
     }
 
-    #[test]
-    fn it_evals_bonus_for_quick_mate() {
-        let g = make_game("f4 e5 g4");
-        let cache = Cache::new();
-        let future_cache = Cache::new();
-        let (_, eval) = search(g, Params::get(), 4, 0, &cache, &future_cache);
-        assert_eq!(eval > 30_000, true);
+    #[bench]
+    fn bench_suggest_depth_2_mid_game(b: &mut Bencher) {
+        let params = Params::get();
+        let g = make_game(MID_GAME_PGN);
+        b.iter(|| {
+            // let cache = Cache::new();
+            // let future_cache = Cache::new();
+            search(g.clone(), params, 1, 0);
+            search(g.clone(), params, 2, 0);
+        });
     }
 
     #[bench]
-    fn bench_search_depth_2_mid_game(b: &mut Bencher) {
+    fn bench_suggest_depth_3_mid_game(b: &mut Bencher) {
         let params = Params::get();
-        let cache = Cache::new();
-        let future_cache = Cache::new();
         let g = make_game(MID_GAME_PGN);
-        b.iter(|| search(g.clone(), params, 2, 0, &cache, &future_cache));
+        b.iter(|| {
+            // let cache = Cache::new();
+            // let future_cache = Cache::new();
+            search(g.clone(), params, 1, 0);
+            search(g.clone(), params, 2, 0);
+            search(g.clone(), params, 3, 0);
+        });
     }
 
     #[bench]
-    fn bench_search_depth_3_mid_game(b: &mut Bencher) {
+    fn bench_suggest_depth_4_mid_game(b: &mut Bencher) {
         let params = Params::get();
-        let cache = Cache::new();
-        let future_cache = Cache::new();
         let g = make_game(MID_GAME_PGN);
-        b.iter(|| search(g.clone(), params, 3, 0, &cache, &future_cache));
+        b.iter(|| {
+            // let cache = Cache::new();
+            // let future_cache = Cache::new();
+            search(g.clone(), params, 1, 0);
+            search(g.clone(), params, 2, 0);
+            search(g.clone(), params, 3, 0);
+            search(g.clone(), params, 4, 0);
+        });
     }
-
-    // #[bench]
-    // fn bench_search_depth_4_mid_game(b: &mut Bencher) {
-    //     let params = Params::get();
-    //     let cache = Cache::new();
-    //     let future_cache = Cache::new();
-    //     let g = make_game(MID_GAME_PGN);
-    //     b.iter(|| search(g.clone(), params, 4, 0, &cache, &future_cache));
-    // }
 
     // #[bench]
     // fn bench_search_depth_5_mid_game(b: &mut Bencher) {
@@ -250,14 +230,14 @@ mod tests {
     //     b.iter(|| search(g.clone(), params, 5, 0, &cache, &future_cache));
     // }
 
-    #[bench]
-    fn bench_search_depth_4_end_game(b: &mut Bencher) {
-        let params = Params::get();
-        let cache = Cache::new();
-        let future_cache = Cache::new();
-        let g = make_game(END_GAME_PGN);
-        b.iter(|| search(g.clone(), params, 4, 0, &cache, &future_cache));
-    }
+    // #[bench]
+    // fn bench_search_depth_4_end_game(b: &mut Bencher) {
+    //     let params = Params::get();
+    //     let cache = Cache::new();
+    //     let future_cache = Cache::new();
+    //     let g = make_game(END_GAME_PGN);
+    //     b.iter(|| search(g.clone(), params, 4, 0, &Cache::new(), &Cache::new()));
+    // }
 
     // #[bench]
     // fn bench_search_depth_5_end_game(b: &mut Bencher) {
