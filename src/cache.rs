@@ -24,7 +24,6 @@ impl Cache {
     }
 
     pub fn clear(&mut self) {
-        self.map.clear();
-        self.map.shrink_to_fit();
+        self.map = HashMap::new();
     }
 }
