@@ -13,3 +13,8 @@ serde = { version = "*", features = ["derive"] }
 serde_yaml = "*"
 regex = "*"
 lazy_static = "*"
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
