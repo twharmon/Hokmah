@@ -1,4 +1,5 @@
 #![feature(test)]
+#![feature(shrink_to)]
 extern crate crossbeam;
 extern crate rand;
 extern crate serde;
