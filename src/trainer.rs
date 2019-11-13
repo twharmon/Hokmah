@@ -5,7 +5,7 @@ use crate::{engine::search, params::Params};
 use std::io::Write;
 
 pub fn train() {
-    let max_game_cnt = 512;
+    let max_game_cnt = 256;
     loop {
         let start = std::time::SystemTime::now();
 
@@ -49,7 +49,7 @@ pub fn train() {
             let diff = b_wins - a_wins;
             let std_dev = (games_played as f32 / 4.0).sqrt();
             if games_played > 20 {
-                if diff.abs() >= std_dev * 4.5 {
+                if diff.abs() >= std_dev * 4.0 {
                     if diff > 0.0 {
                         match serde_yaml::to_string(&b_params) {
                             Ok(s) => {
@@ -69,7 +69,7 @@ pub fn train() {
                     break
                 }
             }
-            if games_played > 40 && diff <= std_dev * 0.5 {
+            if games_played > 40 && diff <= std_dev * 0.75 {
                 break
             }
         }
