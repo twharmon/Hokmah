@@ -12,6 +12,7 @@ use crate::position::{
 use crate::rank::Rank;
 use crate::traits::PushSome;
 use regex::Regex;
+use std::ops::BitXor;
 
 lazy_static! {
     static ref PGN_NUMBER: Regex = Regex::new("^[0-9]+.$").unwrap();
@@ -25,18 +26,42 @@ pub struct Game {
     pub victor: Option<Color>,
     pub is_over: bool,
     pub history: Vec<Ply>,
+    pub hash: u64,
 }
 
 impl Game {
     pub fn new() -> Self {
-        Game {
+        let mut g = Game {
             history: Vec::with_capacity(1000),
             turn: Color::White,
             forward: Direction::Inc,
             victor: None,
             is_over: false,
             board: board::new(),
+            hash: 0,
+        };
+
+        g.hash = g.hash();
+
+        g
+    }
+
+    pub fn hash(&mut self) -> u64 {
+        let mut hash = 9353639772025062263;
+
+        for pos in ALL_POSITIONS.iter() {
+            match self.get_piece(&pos) {
+                Some(p) => hash = hash.bitxor(pos.hash(&p)),
+                None => (),
+            };
         }
+
+        match self.turn {
+            Color::White => hash = hash.bitxor(1),
+            _ => (),
+        };
+
+        hash
     }
 
     pub fn try_ply(&mut self, s: &str) -> Result<(), String> {
@@ -87,12 +112,14 @@ impl Game {
         let destination_file_usize: usize = ply.destination.file.into();
         let origin_rank_usize: usize = ply.origin.rank.into();
         let origin_file_usize: usize = ply.origin.file.into();
-        if let Some(_) = ply.target {
+        if let Some(t) = ply.target {
             match self.board[destination_rank_usize][destination_file_usize] {
                 None => {
+                    let position = Position { rank: ply.origin.rank, file: ply.destination.file };
+                    self.bitxor(position.hash(&t));
                     self.board[origin_rank_usize][destination_file_usize] = None;
                 },
-                Some(_) => (),
+                Some(p) => self.bitxor(ply.destination.hash(&p)),
             };
         }
         let new_piece = match ply.promotion {
@@ -100,6 +127,7 @@ impl Game {
             None => ply.piece,
         };
         self.board[destination_rank_usize][destination_file_usize] = Some(new_piece);
+        self.bitxor(ply.destination.hash(&new_piece));
 
         if ply.piece.kind == Kind::King && ply.origin.file == File::E {
             let rook = Piece {
@@ -109,15 +137,25 @@ impl Game {
             if ply.destination.file == File::C {
                 self.board[origin_rank_usize][0] = None;
                 self.board[origin_rank_usize][3] = Some(rook);
+                let position = Position { file: File::A, rank: ply.origin.rank };
+                self.bitxor(position.hash(&rook));
+                let position = Position { file: File::D, rank: ply.origin.rank };
+                self.bitxor(position.hash(&rook));
             } else if ply.destination.file == File::G {
                 self.board[origin_rank_usize][7] = None;
                 self.board[origin_rank_usize][5] = Some(rook);
+                let position = Position { file: File::H, rank: ply.origin.rank };
+                self.bitxor(position.hash(&rook));
+                let position = Position { file: File::F, rank: ply.origin.rank };
+                self.bitxor(position.hash(&rook));
             }
         }
         self.board[origin_rank_usize][origin_file_usize] = None;
+        self.bitxor(ply.origin.hash(&ply.piece));
 
         self.history.push(ply);
         self.switch_turns();
+        self.bitxor(1);
 
         if set_victor {
             let has_valid_plies = self.has_valid_plies();
@@ -153,33 +191,45 @@ impl Game {
                                     || (p.origin.rank == Rank::Seven
                                         && p.destination.rank == Rank::Five))
                             {
-                                let en_passant_target_rank_usize = match self.turn {
-                                    Color::White => 3,
-                                    Color::Black => 4,
+                                let (en_passant_target_rank_usize, en_passant_target_rank) = match self.turn {
+                                    Color::White => (3, Rank::Four),
+                                    Color::Black => (4, Rank::Five),
                                 };
                                 self.board[en_passant_target_rank_usize][destination_file_usize] =
                                     Some(t);
+                                let position = Position { file: ply.destination.file, rank: en_passant_target_rank };
+                                self.bitxor(position.hash(&t));
                                 self.board[destination_rank_usize][destination_file_usize] = None;
                             } else {
                                 self.board[destination_rank_usize][destination_file_usize] = Some(t);
+                                self.bitxor(ply.destination.hash(&t));
                             }
                         }
                         None => {
                             self.board[destination_rank_usize][destination_file_usize] = Some(t);
+                            self.bitxor(ply.destination.hash(&t));
                         },
                     };
                 } else {
                     self.board[destination_rank_usize][destination_file_usize] = Some(t);
+                    self.bitxor(ply.destination.hash(&t));
                 }
             } else {
                 self.board[destination_rank_usize][destination_file_usize] = Some(t);
+                self.bitxor(ply.destination.hash(&t));
             }
         } else {
             self.board[destination_rank_usize][destination_file_usize] = None;
         }
+        let new_piece = match ply.promotion {
+            Some(p) => p,
+            None => ply.piece
+        };
+        self.bitxor(ply.destination.hash(&new_piece));
 
 
         self.switch_turns();
+        self.bitxor(1);
 
         if ply.piece.kind == Kind::King && ply.origin.file == File::E {
             let rook = Piece {
@@ -189,12 +239,25 @@ impl Game {
             if ply.destination.file == File::C {
                 self.board[origin_rank_usize][0] = Some(rook);
                 self.board[origin_rank_usize][3] = None;
+                let position = Position { file: File::A, rank: ply.origin.rank };
+                self.bitxor(position.hash(&rook));
+                let position = Position { file: File::D, rank: ply.origin.rank };
+                self.bitxor(position.hash(&rook));
             } else if ply.destination.file == File::G {
                 self.board[origin_rank_usize][7] = Some(rook);
                 self.board[origin_rank_usize][5] = None;
+                let position = Position { file: File::H, rank: ply.origin.rank };
+                self.bitxor(position.hash(&rook));
+                let position = Position { file: File::F, rank: ply.origin.rank };
+                self.bitxor(position.hash(&rook));
             }
         }
         self.board[origin_rank_usize][origin_file_usize] = Some(ply.piece);
+        self.bitxor(ply.origin.hash(&ply.piece));
+    }
+
+    fn bitxor(&mut self, hash: u64) {
+        self.hash = self.hash.bitxor(hash);
     }
 
     pub fn is_draw(&mut self, has_valid_plies: bool) -> bool {

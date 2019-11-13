@@ -22,4 +22,9 @@ impl Cache {
     pub fn set(&mut self, key: u64, val: i16) {
         self.map.insert(key, val);
     }
+
+    pub fn clear(&mut self) {
+        self.map.clear();
+        self.map.shrink_to_fit();
+    }
 }
