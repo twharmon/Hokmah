@@ -95,8 +95,10 @@ fn play_game(white_params: Params, black_params: Params) -> Option<Color> {
             5
         } else if mat < 20 {
             4
-        } else {
+        } else if mat < 28 {
             3
+        } else {
+            2
         };
 
         let ply = search(

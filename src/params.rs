@@ -38,7 +38,7 @@ impl Params {
     pub fn randomly_mutate(&mut self) -> (String, i16) {
         let mut rng = rand::thread_rng();
         let mut multiplier = 1f32;
-        while (multiplier - 1f32).abs() < 0.1 {
+        while (multiplier - 1f32).abs() < 0.025 {
             multiplier = rng.gen_range(0.8, 1.2);
         }
         match rng.gen_range(0, 14) {
