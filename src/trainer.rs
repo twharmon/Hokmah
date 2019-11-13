@@ -89,13 +89,11 @@ fn play_game(white_params: Params, black_params: Params) -> Option<Color> {
     loop {
         let mat = g.get_player_naive_material() + g.get_enemy_naive_material();
 
-        let depth = if mat < 6 {
-            6
-        } else if mat < 12 {
+        let depth = if mat < 8 {
             5
-        } else if mat < 20 {
+        } else if mat < 16 {
             4
-        } else if mat < 28 {
+        } else if mat < 22 {
             3
         } else {
             2
