@@ -38,22 +38,45 @@ pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc
         let cache = cache.clone();
         let future_cache = future_cache.clone();
         std::thread::spawn(move || {
-            let color = g.turn;
+            let maximizing_color = g.turn;
             g.do_ply(ply, false);
-            let (alpha, beta) = (-30_000, 30_000);
-            let value = minimax(depth - 1, &mut g, &params, alpha, beta, color, extension, &cache, &future_cache);
-            sender.send((ply, value)).expect("unable to send");
+            let key = g.hash.bitxor(maximizing_color.hash());
+            let mut alpha_aspiration_window = 100;
+            let mut beta_aspiration_window = 100;
+            let (mut alpha, mut beta) = match future_cache.lock().unwrap().get(key) {
+                Some(a) => (a - alpha_aspiration_window, a + beta_aspiration_window),
+                None => (-30_000, 30_000),
+            };
+            loop {
+                let eval = minimax(depth - 1, &mut g, &params, alpha, beta, maximizing_color, extension, &cache, &future_cache);
+                if eval >= alpha && eval <= beta {
+                    sender.send((ply, eval)).expect("unable to send");
+                    future_cache.lock().unwrap().set(key, eval);
+                    break
+                }
+                if eval < alpha {
+                    alpha += alpha_aspiration_window;
+                    alpha_aspiration_window *= 3;
+                    beta = alpha;
+                    alpha -= alpha_aspiration_window;
+                } else {
+                    beta += beta_aspiration_window;
+                    beta_aspiration_window *= 3;
+                    alpha = beta;
+                    beta += beta_aspiration_window;
+                }
+            }
         });
     }
 
     let mut best_eval = i16::MIN;
     let mut best_plies_found = Vec::new();
     for _ in 0..valid_ply_cnt {
-        let (ply, value) = r.recv().expect("unable to receive");
-        if value == best_eval {
+        let (ply, eval) = r.recv().expect("unable to receive");
+        if eval == best_eval {
             best_plies_found.push(ply);
-        } else if value > best_eval {
-            best_eval = value;
+        } else if eval > best_eval {
+            best_eval = eval;
             best_plies_found.clear();
             best_plies_found.push(ply);
         }
