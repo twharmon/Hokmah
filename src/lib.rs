@@ -25,6 +25,7 @@ mod rank;
 pub mod trainer;
 mod traits;
 pub mod cache;
+pub mod opening_book;
 
 #[cfg(test)]
 mod tests {
