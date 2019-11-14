@@ -40,7 +40,8 @@ pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc
         std::thread::spawn(move || {
             let color = g.turn;
             g.do_ply(ply, false);
-            let value = minimax(depth - 1, &mut g, &params, -30_000, 30_000, color, extension, &cache, &future_cache);
+            let (alpha, beta) = (-30_000, 30_000);
+            let value = minimax(depth - 1, &mut g, &params, alpha, beta, color, extension, &cache, &future_cache);
             sender.send((ply, value)).expect("unable to send");
         });
     }
@@ -73,29 +74,40 @@ fn minimax(
     future_cache: &Arc<Mutex<Cache>>,
 ) -> i16 {
     if depth == 0 {
-        let key = g.hash.bitxor(maximizing_color.hash());
-        match cache.lock().unwrap().get(key) {
-            Some(e) => return (e as f32 * (1f32 + (depth as f32 / 100f32))) as i16,
+        match cache.lock().unwrap().get(g.hash) {
+            Some(eval) => {
+                return if g.turn == maximizing_color {
+                    eval
+                } else {
+                    0 - eval
+                }
+            },
             None => (),
         };
         let eval = evaluate(g, params, maximizing_color);
-        cache.lock().unwrap().set(key, eval);
-        return (eval as f32 * (1f32 + (depth as f32 / 100f32))) as i16;
+        cache.lock().unwrap().set(g.hash, if g.turn == maximizing_color { eval } else { 0 - eval });
+        return eval;
     }
 
     let mut valid_plies = g.get_valid_plies();
     if valid_plies.is_empty() {
-        let key = g.hash.bitxor(maximizing_color.hash());
-        match cache.lock().unwrap().get(key) {
-            Some(e) => return (e as f32 * (1f32 + (depth as f32 / 100f32))) as i16,
+        match cache.lock().unwrap().get(g.hash) {
+            Some(e) => {
+                let adjusted_eval = (e as f32 * (1f32 + (depth as f32 / 1000f32))) as i16;
+                return if g.turn == maximizing_color {
+                    adjusted_eval
+                } else {
+                    0 - adjusted_eval
+                }
+            },
             None => (),
         };
         let eval = evaluate(g, params, maximizing_color);
-        cache.lock().unwrap().set(key, eval);
-        return (eval as f32 * (1f32 + (depth as f32 / 100f32))) as i16;
+        cache.lock().unwrap().set(g.hash, if g.turn == maximizing_color { eval } else { 0 - eval });
+        return (eval as f32 * (1f32 + (depth as f32 / 1000f32))) as i16;
     }
 
-    valid_plies.best_first_sort(depth, g, maximizing_color, cache);
+    valid_plies.best_first_sort(depth, g, maximizing_color, future_cache);
 
     if maximizing_color == g.turn {
         let mut best_ply = -30_000;
@@ -128,7 +140,8 @@ fn minimax(
             );
             best_ply = best_ply.max(eval);
             if depth > 2 {
-                future_cache.lock().unwrap().set(g.hash, eval);
+                let key = g.hash.bitxor(maximizing_color.hash());
+                future_cache.lock().unwrap().set(key, eval);
             }
             g.revert_last_ply();
             alpha = alpha.max(best_ply);
@@ -168,7 +181,7 @@ fn minimax(
             );
             best_ply = best_ply.min(eval);
             if depth > 2 {
-                let key = g.hash.bitxor(7820218537607168);
+                let key = g.hash.bitxor(maximizing_color.hash());
                 future_cache.lock().unwrap().set(key, eval);
             }
             g.revert_last_ply();

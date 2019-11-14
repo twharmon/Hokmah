@@ -157,13 +157,9 @@ impl BestFirstSort for Vec<Ply> {
         if depth > 2 {
             let c = cache.lock().unwrap();
             self.sort_by_cached_key(|a| {
-                let key = if g.turn == color {
-                    a.hash(g).bitxor(7820218537607168)
-                } else {
-                    g.hash
-                };
+                let key = a.hash(g).bitxor(color.hash());
                 match c.get(key) {
-                    Some(e) => 0 - e,
+                    Some(e) => e,
                     None => match a.promotion {
                         Some(p) => 0 - p.naive_value(),
                         None => match a.target {
@@ -193,12 +189,35 @@ mod tests {
     use crate::tests::make_game;
     use crate::params::Params;
     use crate::cache::Cache;
-    use crate::engine::search;
+    use crate::kind::Kind;
     use crate::color::Color;
+    use crate::position::Position;
+    use crate::file::File;
+    use crate::ply::Ply;
+    use crate::rank::Rank;
+    use crate::engine::search;
+    use crate::piece::Piece;
     use super::BestFirstSort;
     use test::Bencher;
 
     const MID_GAME_PGN: &'static str = "1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Bb5 a6 5. Bxc6 dxc6 6. d4 exd4 7. Nxd4 Bc5 8. Be3 O-O 9. Qd3 Bg4 10. f3 Bh5 11. g4 Bg6 12. O-O-O b5 13. Nf5 Bxe3+ 14. Qxe3 Qc8";
+
+    #[test]
+    fn it_hashes_correctly() {
+        let mut g = make_game("e4 e5 Nf3 Nc6 Nc3 Nf6 Bb5 a6 Bxc6 dxc6 d4 exd4");
+
+        let ply = Ply {
+            origin: Position { file: File::F, rank: Rank::Three },
+            destination: Position { file: File::D, rank: Rank::Four },
+            piece: Piece { kind: Kind::Knight, color: Color::White },
+            target: Some(Piece { kind: Kind::Pawn, color: Color::Black }),
+            promotion: None,
+        };
+
+        let test_hash = ply.hash(&g);
+        g.do_ply(ply, false);
+        assert_eq!(g.hash, test_hash);
+    }
 
     #[bench]
     fn bench_best_first_sort_simple(b: &mut Bencher) {
