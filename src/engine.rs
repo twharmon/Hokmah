@@ -41,8 +41,8 @@ pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc
             let maximizing_color = g.turn;
             g.do_ply(ply, false);
             let key = g.hash.bitxor(maximizing_color.hash());
-            let mut alpha_aspiration_window = 100;
-            let mut beta_aspiration_window = 100;
+            let mut alpha_aspiration_window = 50;
+            let mut beta_aspiration_window = 50;
             let (mut alpha, mut beta) = match future_cache.lock().unwrap().get(key) {
                 Some(a) => (a - alpha_aspiration_window, a + beta_aspiration_window),
                 None => (-30_000, 30_000),
@@ -56,14 +56,14 @@ pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc
                 }
                 if eval < alpha {
                     alpha += alpha_aspiration_window;
-                    alpha_aspiration_window *= 3;
+                    alpha_aspiration_window *= 2;
                     beta = alpha;
-                    alpha -= alpha_aspiration_window;
+                    alpha = eval - alpha_aspiration_window;
                 } else {
                     beta += beta_aspiration_window;
-                    beta_aspiration_window *= 3;
+                    beta_aspiration_window *= 2;
                     alpha = beta;
-                    beta += beta_aspiration_window;
+                    beta = eval + beta_aspiration_window;
                 }
             }
         });

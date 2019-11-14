@@ -16,8 +16,8 @@ impl std::fmt::Display for Color {
 impl Color {
     pub fn hash(&self) -> u64 {
         match self {
-            Color::White => 840124342865041275,
-            Color::Black => 2565603302264732697,
+            Color::White => 2887066399212044383,
+            Color::Black => 14573829706215326249,
         }
     }
 }

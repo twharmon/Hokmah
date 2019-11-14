@@ -47,7 +47,7 @@ impl Game {
     }
 
     pub fn hash(&mut self) -> u64 {
-        let mut hash = 9353639772025062263;
+        let mut hash = 12528355439915565194;
 
         for pos in ALL_POSITIONS.iter() {
             match self.get_piece(&pos) {
