@@ -22,7 +22,7 @@ pub fn suggest(g: Game, params: Params, limit: Duration, cache: &Arc<Mutex<Cache
         ply = search(g.clone(), params, depth, 2, &cache, &future_cache);
     }
 
-    println!("searched {} deep in {} secs", depth, SystemTime::now().duration_since(start).unwrap().as_secs_f32());
+    println!("searched {} deep in {} secs (limit: {})", depth, SystemTime::now().duration_since(start).unwrap().as_secs_f32(), limit.as_secs_f32());
 
     ply
 }
