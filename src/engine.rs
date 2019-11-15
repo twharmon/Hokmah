@@ -248,44 +248,44 @@ mod tests {
         });
     }
 
-    // #[bench]
-    // fn bench_suggest_depth_3_mid_game(b: &mut Bencher) {
-    //     let params = Params::get();
-    //     let g = make_game(MID_GAME_PGN);
-    //     b.iter(|| {
-    //         let cache = Cache::new();
-    //         let future_cache = Cache::new();
-    //         search(g.clone(), params, 1, 0, &cache, &future_cache);
-    //         search(g.clone(), params, 2, 0, &cache, &future_cache);
-    //         search(g.clone(), params, 3, 0, &cache, &future_cache);
-    //     });
-    // }
+    #[bench]
+    fn bench_suggest_depth_3_mid_game(b: &mut Bencher) {
+        let params = Params::get();
+        let g = make_game(MID_GAME_PGN);
+        b.iter(|| {
+            let cache = Cache::new();
+            let future_cache = Cache::new();
+            search(g.clone(), params, 1, 0, &cache, &future_cache);
+            search(g.clone(), params, 2, 0, &cache, &future_cache);
+            search(g.clone(), params, 3, 0, &cache, &future_cache);
+        });
+    }
 
-    // #[bench]
-    // fn bench_suggest_depth_4_mid_game(b: &mut Bencher) {
-    //     let params = Params::get();
-    //     let g = make_game(MID_GAME_PGN);
-    //     b.iter(|| {
-    //         let cache = Cache::new();
-    //         let future_cache = Cache::new();
-    //         search(g.clone(), params, 1, 0, &cache, &future_cache);
-    //         search(g.clone(), params, 2, 0, &cache, &future_cache);
-    //         search(g.clone(), params, 3, 0, &cache, &future_cache);
-    //         search(g.clone(), params, 4, 0, &cache, &future_cache);
-    //     });
-    // }
+    #[bench]
+    fn bench_suggest_depth_4_mid_game(b: &mut Bencher) {
+        let params = Params::get();
+        let g = make_game(MID_GAME_PGN);
+        b.iter(|| {
+            let cache = Cache::new();
+            let future_cache = Cache::new();
+            search(g.clone(), params, 1, 0, &cache, &future_cache);
+            search(g.clone(), params, 2, 0, &cache, &future_cache);
+            search(g.clone(), params, 3, 0, &cache, &future_cache);
+            search(g.clone(), params, 4, 0, &cache, &future_cache);
+        });
+    }
 
-    // #[bench]
-    // fn bench_suggest_depth_4_end_game(b: &mut Bencher) {
-    //     let params = Params::get();
-    //     let g = make_game(END_GAME_PGN);
-    //     b.iter(|| {
-    //         let cache = Cache::new();
-    //         let future_cache = Cache::new();
-    //         search(g.clone(), params, 1, 0, &cache, &future_cache);
-    //         search(g.clone(), params, 2, 0, &cache, &future_cache);
-    //         search(g.clone(), params, 3, 0, &cache, &future_cache);
-    //         search(g.clone(), params, 4, 0, &cache, &future_cache);
-    //     });
-    // }
+    #[bench]
+    fn bench_suggest_depth_4_end_game(b: &mut Bencher) {
+        let params = Params::get();
+        let g = make_game(END_GAME_PGN);
+        b.iter(|| {
+            let cache = Cache::new();
+            let future_cache = Cache::new();
+            search(g.clone(), params, 1, 0, &cache, &future_cache);
+            search(g.clone(), params, 2, 0, &cache, &future_cache);
+            search(g.clone(), params, 3, 0, &cache, &future_cache);
+            search(g.clone(), params, 4, 0, &cache, &future_cache);
+        });
+    }
 }
