@@ -2225,4 +2225,28 @@ mod tests {
         let mut g = make_game("d4 d5 e4 e5 Nc3 Nc6 Nf3 Nf6");
         b.iter(|| g.get_valid_plies());
     }
+
+    #[bench]
+    fn bench_has_valid_plies_simple(b: &mut Bencher) {
+        let mut g = make_game("d4 d5 e4 e5 Nc3 Nc6 Nf3 Nf6");
+        b.iter(|| g.has_valid_plies());
+    }
+
+    #[bench]
+    fn bench_has_valid_plies_complex(b: &mut Bencher) {
+        let mut g = make_game("1. e4 e5 2. Nf3 Nf6 3. Nxe5 Nxe4 4. Nxf7 Nxf2 5. Nxd8 Nxd1 6. Kxd1 Kxd8 7. Nc3 Nc6 8. d4 d5 9. Nxd5 Nxd4 10. Nxc7 Nxc2 11. Nxa8 Nxa1 12. Be3 Be6 13. Bxa7 Bxa2 14. Kc1 Kc8 15. b3 b6 16. Kb2 Kb7 17. Kxa2 Kxa7 18. Kxa1 Kxa8 19. b4 b5 20. Bxb5 Bxb4 21. Bc4 Bd6 22. Bd3 Bxh2 23. Bxh7 Rxh7 24. Rxh2 Rxh2 25. Kb1 Rxg2 26. Kc1 Rc2+ 27. Kxc2 g6 28. Kd2 g5 29. Ke2 g4 30. Kf1 g3 31. Kg1 g2 32. Kf2 g1=Q+ 33. Kf3 Kb7 34. Kf4 Kc6 35. Kf3 Kd6 36. Kf4 Kd5 37. Kf3 Ke5 38. Ke2 Ke4 39. Kd2 Qe3+ 40. Kc2 Kd4 41. Kb2 Kd3 42. Kb1 Kc3 43. Ka2 Qe1 44. Ka3 Qe3 45. Ka2 Kc2 46. Ka1 Kb3 47. Kb1 Qc3");
+        b.iter(|| g.has_valid_plies());
+    }
+
+    #[bench]
+    fn bench_is_draw_simple(b: &mut Bencher) {
+        let mut g = make_game("1. e4 d5 2. Nf3 Bg4 3. Nc3 Qd6 4. a4 Nc6 5. b3");
+        b.iter(|| g.is_draw(true));
+    }
+
+    #[bench]
+    fn bench_is_draw_complex(b: &mut Bencher) {
+        let mut g = make_game("1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8");
+        b.iter(|| g.is_draw(true));
+    }
 }
