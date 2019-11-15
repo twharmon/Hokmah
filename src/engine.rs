@@ -11,6 +11,7 @@ use std::ops::{Sub, Div, BitXor};
 use crate::cache::Cache;
 use std::sync::{Arc, Mutex};
 use std::i16;
+use crate::eval::{MIN_EVAL, MAX_EVAL};
 
 pub fn suggest(g: Game, params: Params, limit: Duration, cache: &Arc<Mutex<Cache>>, future_cache: &Arc<Mutex<Cache>>) -> Ply {    
     let start = SystemTime::now();
@@ -45,7 +46,7 @@ pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc
             let mut beta_aspiration_window = 50;
             let (mut alpha, mut beta) = match future_cache.lock().unwrap().get(key) {
                 Some(a) => (a - alpha_aspiration_window, a + beta_aspiration_window),
-                None => (-30_000, 30_000),
+                None => (MIN_EVAL, MAX_EVAL),
             };
             loop {
                 let eval = minimax(depth - 1, &mut g, &params, alpha, beta, maximizing_color, extension, &cache, &future_cache);
@@ -133,7 +134,7 @@ fn minimax(
     valid_plies.best_first_sort(depth, g, maximizing_color, future_cache);
 
     if maximizing_color == g.turn {
-        let mut best_eval = -30_000;
+        let mut best_eval = MIN_EVAL;
         for ply in valid_plies {
             g.do_ply(ply, false);
             if depth == 1 && extension > 0 {
@@ -174,7 +175,7 @@ fn minimax(
         }
         best_eval
     } else {
-        let mut best_eval = 30_000;
+        let mut best_eval = MAX_EVAL;
         for ply in valid_plies {
             g.do_ply(ply, false);
             if depth == 1 && extension > 0 {
@@ -247,44 +248,44 @@ mod tests {
         });
     }
 
-    #[bench]
-    fn bench_suggest_depth_3_mid_game(b: &mut Bencher) {
-        let params = Params::get();
-        let g = make_game(MID_GAME_PGN);
-        b.iter(|| {
-            let cache = Cache::new();
-            let future_cache = Cache::new();
-            search(g.clone(), params, 1, 0, &cache, &future_cache);
-            search(g.clone(), params, 2, 0, &cache, &future_cache);
-            search(g.clone(), params, 3, 0, &cache, &future_cache);
-        });
-    }
+    // #[bench]
+    // fn bench_suggest_depth_3_mid_game(b: &mut Bencher) {
+    //     let params = Params::get();
+    //     let g = make_game(MID_GAME_PGN);
+    //     b.iter(|| {
+    //         let cache = Cache::new();
+    //         let future_cache = Cache::new();
+    //         search(g.clone(), params, 1, 0, &cache, &future_cache);
+    //         search(g.clone(), params, 2, 0, &cache, &future_cache);
+    //         search(g.clone(), params, 3, 0, &cache, &future_cache);
+    //     });
+    // }
 
-    #[bench]
-    fn bench_suggest_depth_4_mid_game(b: &mut Bencher) {
-        let params = Params::get();
-        let g = make_game(MID_GAME_PGN);
-        b.iter(|| {
-            let cache = Cache::new();
-            let future_cache = Cache::new();
-            search(g.clone(), params, 1, 0, &cache, &future_cache);
-            search(g.clone(), params, 2, 0, &cache, &future_cache);
-            search(g.clone(), params, 3, 0, &cache, &future_cache);
-            search(g.clone(), params, 4, 0, &cache, &future_cache);
-        });
-    }
+    // #[bench]
+    // fn bench_suggest_depth_4_mid_game(b: &mut Bencher) {
+    //     let params = Params::get();
+    //     let g = make_game(MID_GAME_PGN);
+    //     b.iter(|| {
+    //         let cache = Cache::new();
+    //         let future_cache = Cache::new();
+    //         search(g.clone(), params, 1, 0, &cache, &future_cache);
+    //         search(g.clone(), params, 2, 0, &cache, &future_cache);
+    //         search(g.clone(), params, 3, 0, &cache, &future_cache);
+    //         search(g.clone(), params, 4, 0, &cache, &future_cache);
+    //     });
+    // }
 
-    #[bench]
-    fn bench_suggest_depth_4_end_game(b: &mut Bencher) {
-        let params = Params::get();
-        let g = make_game(END_GAME_PGN);
-        b.iter(|| {
-            let cache = Cache::new();
-            let future_cache = Cache::new();
-            search(g.clone(), params, 1, 0, &cache, &future_cache);
-            search(g.clone(), params, 2, 0, &cache, &future_cache);
-            search(g.clone(), params, 3, 0, &cache, &future_cache);
-            search(g.clone(), params, 4, 0, &cache, &future_cache);
-        });
-    }
+    // #[bench]
+    // fn bench_suggest_depth_4_end_game(b: &mut Bencher) {
+    //     let params = Params::get();
+    //     let g = make_game(END_GAME_PGN);
+    //     b.iter(|| {
+    //         let cache = Cache::new();
+    //         let future_cache = Cache::new();
+    //         search(g.clone(), params, 1, 0, &cache, &future_cache);
+    //         search(g.clone(), params, 2, 0, &cache, &future_cache);
+    //         search(g.clone(), params, 3, 0, &cache, &future_cache);
+    //         search(g.clone(), params, 4, 0, &cache, &future_cache);
+    //     });
+    // }
 }

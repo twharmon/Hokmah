@@ -7,14 +7,17 @@ use crate::params::Params;
 use crate::position::{ALL_POSITIONS, CENTER_POSITIONS};
 use crate::rank::Rank;
 
+pub const MIN_EVAL: i16 = -30_000;
+pub const MAX_EVAL: i16 = 30_000;
+
 pub fn evaluate(game: &mut Game, params: &Params, maximizing_player_color: Color) -> i16 {
     let has_valid_plies = game.has_valid_plies();
     if !has_valid_plies {
         if game.is_in_check() {
             return if maximizing_player_color == game.turn {
-                -30_000
+                MIN_EVAL
             } else {
-                30_000
+                MAX_EVAL
             };
         }
         return 0
@@ -290,6 +293,7 @@ fn get_secondary_surrounding_penalty(game: &Game, position: Option<Position>) ->
 #[cfg(test)]
 mod tests {
     use super::evaluate;
+    use super::MIN_EVAL;
     use crate::color::Color;
     use crate::params::Params;
     use crate::tests::make_game;
@@ -299,7 +303,7 @@ mod tests {
     fn it_evals_checkmate_correctly() {
         let mut g = make_game("1. e4 d5 2. exd5 Qxd5 3. Nc3 Qd4 4. Nf3 Qf6 5. d4 Bg4 6. Bg5 Qe6+ 7. Be2 Bxf3 8. gxf3 h6 9. Bf4 Nd7 10. Bxc7 Qc6 11. Be5 Nxe5 12. dxe5 Rd8 13. Bd3 h5 14. Qd2 g6 15. O-O-O Bh6 16. f4 Kf8 17. Kb1 Bg7 18. Be4 Rxd2 19. Rxd2 Qb6 20. Nd5 Qd8 21. Nf6 Qxd2 22. Nxg8 Kxg8 23. Bxb7 Rh6 24. Re1 Qxe1#");
         let eval = evaluate(&mut g, &Params::get(), Color::White);
-        assert_eq!(eval, -30_000);
+        assert_eq!(eval, MIN_EVAL);
     }
 
     #[bench]
