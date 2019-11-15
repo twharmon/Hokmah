@@ -5666,6 +5666,7 @@ impl Position {
                     kind: Kind::King,
                 },
             ) => 7719205491145966421,
+            _ => panic!("invalid position / piece combination {} / {}", self, piece.color),
         }
     }
 }

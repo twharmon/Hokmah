@@ -1,7 +1,6 @@
 use crate::board::{self, Board};
 use crate::color::Color;
 use crate::direction::Direction;
-use crate::file::File;
 use crate::kind::Kind;
 use crate::piece::Piece;
 use crate::ply::Ply;
@@ -9,7 +8,6 @@ use crate::position::{
     east_stepper, north_east_stepper, north_stepper, north_west_stepper, south_east_stepper,
     south_stepper, south_west_stepper, west_stepper, Position, ALL_POSITIONS,
 };
-use crate::rank::Rank;
 use crate::traits::PushSome;
 use regex::Regex;
 use std::ops::BitXor;
@@ -86,6 +84,8 @@ impl Game {
         let mut plies_str = String::new();
         for ply in &valid_plies {
             plies_str.push_str(&ply.uci());
+            plies_str.push_str("/");
+            plies_str.push_str(&ply.san(&valid_plies));
             plies_str.push_str(", ");
         }
         Err(format!(
@@ -108,19 +108,12 @@ impl Game {
     }
 
     pub fn do_ply(&mut self, ply: Ply, set_victor: bool) {
-        let destination_rank_usize: usize = ply.destination.rank.into();
-        let destination_file_usize: usize = ply.destination.file.into();
-        let origin_rank_usize: usize = ply.origin.rank.into();
-        let origin_file_usize: usize = ply.origin.file.into();
         if let Some(t) = ply.target {
             match self.board[ply.destination.1][ply.destination.0] {
                 None => {
-                    let position = Position {
-                        rank: ply.origin.rank,
-                        file: ply.destination.file,
-                    };
+                    let position = Position(ply.origin.1, ply.destination.0);
                     self.bitxor(position.hash(&t));
-                    self.board[origin_rank_usize][ply.destination.0] = None;
+                    self.board[ply.origin.1][ply.destination.0] = None;
                 }
                 Some(p) => self.bitxor(ply.destination.hash(&p)),
             };
@@ -132,40 +125,28 @@ impl Game {
         self.board[ply.destination.1][ply.destination.0] = Some(new_piece);
         self.bitxor(ply.destination.hash(&new_piece));
 
-        if ply.piece.kind == Kind::King && ply.origin.file == File::E {
+        if ply.piece.kind == Kind::King && ply.origin.0 == 4 {
             let rook = Piece {
                 color: self.turn,
                 kind: Kind::Rook,
             };
-            if ply.destination.file == File::C {
-                self.board[origin_rank_usize][0] = None;
-                self.board[origin_rank_usize][3] = Some(rook);
-                let position = Position {
-                    file: File::A,
-                    rank: ply.origin.rank,
-                };
+            if ply.destination.0 == 2 {
+                self.board[ply.origin.1][0] = None;
+                self.board[ply.origin.1][3] = Some(rook);
+                let position = Position(0, ply.origin.1);
                 self.bitxor(position.hash(&rook));
-                let position = Position {
-                    file: File::D,
-                    rank: ply.origin.rank,
-                };
+                let position = Position(3, ply.origin.1);
                 self.bitxor(position.hash(&rook));
-            } else if ply.destination.file == File::G {
-                self.board[origin_rank_usize][7] = None;
-                self.board[origin_rank_usize][5] = Some(rook);
-                let position = Position {
-                    file: File::H,
-                    rank: ply.origin.rank,
-                };
+            } else if ply.destination.0 == 6 {
+                self.board[ply.origin.1][7] = None;
+                self.board[ply.origin.1][5] = Some(rook);
+                let position = Position(7, ply.origin.1);
                 self.bitxor(position.hash(&rook));
-                let position = Position {
-                    file: File::F,
-                    rank: ply.origin.rank,
-                };
+                let position = Position(5, ply.origin.1);
                 self.bitxor(position.hash(&rook));
             }
         }
-        self.board[origin_rank_usize][origin_file_usize] = None;
+        self.board[ply.origin.1][ply.origin.0] = None;
         self.bitxor(ply.origin.hash(&ply.piece));
 
         self.history.push(ply);
@@ -187,60 +168,51 @@ impl Game {
 
     pub fn revert_last_ply(&mut self) {
         let ply = self.history.pop().unwrap();
-        let destination_rank_usize: usize = ply.destination.rank.into();
-        let destination_file_usize: usize = ply.destination.file.into();
-        let origin_rank_usize: usize = ply.origin.rank.into();
-        let origin_file_usize: usize = ply.origin.file.into();
         if let Some(t) = ply.target {
             if ply.piece.kind == Kind::Pawn {
                 let is_dest_rank_en_passant = match self.turn {
-                    Color::White => 2 == destination_rank_usize,
-                    _ => 5 == destination_rank_usize,
+                    Color::White => 2 == ply.destination.1,
+                    _ => 5 == ply.destination.1,
                 };
                 if is_dest_rank_en_passant {
                     match self.history.last() {
                         Some(p) => {
                             if p.piece.kind == Kind::Pawn
-                                && p.destination.file == ply.destination.file
-                                && ((p.origin.rank == Rank::Two
-                                    && p.destination.rank == Rank::Four)
-                                    || (p.origin.rank == Rank::Seven
-                                        && p.destination.rank == Rank::Five))
+                                && p.destination.0 == ply.destination.0
+                                && ((p.origin.1 == 1
+                                    && p.destination.1 == 3)
+                                    || (p.origin.1 == 6
+                                        && p.destination.1 == 4))
                             {
-                                let (en_passant_target_rank_usize, en_passant_target_rank) =
-                                    match self.turn {
-                                        Color::White => (3, Rank::Four),
-                                        Color::Black => (4, Rank::Five),
-                                    };
-                                self.board[en_passant_target_rank_usize][destination_file_usize] =
-                                    Some(t);
-                                let position = Position {
-                                    file: ply.destination.file,
-                                    rank: en_passant_target_rank,
+                                let en_passant_target_rank = match self.turn {
+                                    Color::White => 3,
+                                    Color::Black => 4,
                                 };
-                                self.bitxor(position.hash(&t));
-                                self.board[destination_rank_usize][destination_file_usize] = None;
-                            } else {
-                                self.board[destination_rank_usize][destination_file_usize] =
+                                self.board[en_passant_target_rank][ply.destination.0] =
                                     Some(t);
+                                let position = Position(ply.destination.0, en_passant_target_rank);
+                                self.bitxor(position.hash(&t));
+                                self.board[ply.destination.1][ply.destination.0] = None;
+                            } else {
+                                self.board[ply.destination.1][ply.destination.0] = Some(t);
                                 self.bitxor(ply.destination.hash(&t));
                             }
                         }
                         None => {
-                            self.board[destination_rank_usize][destination_file_usize] = Some(t);
+                            self.board[ply.destination.1][ply.destination.0] = Some(t);
                             self.bitxor(ply.destination.hash(&t));
                         }
                     };
                 } else {
-                    self.board[destination_rank_usize][destination_file_usize] = Some(t);
+                    self.board[ply.destination.1][ply.destination.0] = Some(t);
                     self.bitxor(ply.destination.hash(&t));
                 }
             } else {
-                self.board[destination_rank_usize][destination_file_usize] = Some(t);
+                self.board[ply.destination.1][ply.destination.0] = Some(t);
                 self.bitxor(ply.destination.hash(&t));
             }
         } else {
-            self.board[destination_rank_usize][destination_file_usize] = None;
+            self.board[ply.destination.1][ply.destination.0] = None;
         }
         let new_piece = match ply.promotion {
             Some(p) => p,
@@ -251,40 +223,28 @@ impl Game {
         self.switch_turns();
         self.bitxor(1);
 
-        if ply.piece.kind == Kind::King && ply.origin.file == File::E {
+        if ply.piece.kind == Kind::King && ply.origin.0 == 4 {
             let rook = Piece {
                 color: self.turn,
                 kind: Kind::Rook,
             };
-            if ply.destination.file == File::C {
-                self.board[origin_rank_usize][0] = Some(rook);
-                self.board[origin_rank_usize][3] = None;
-                let position = Position {
-                    file: File::A,
-                    rank: ply.origin.rank,
-                };
+            if ply.destination.0 == 2 {
+                self.board[ply.origin.1][0] = Some(rook);
+                self.board[ply.origin.1][3] = None;
+                let position = Position(0, ply.origin.1);
                 self.bitxor(position.hash(&rook));
-                let position = Position {
-                    file: File::D,
-                    rank: ply.origin.rank,
-                };
+                let position = Position(3, ply.origin.1);
                 self.bitxor(position.hash(&rook));
-            } else if ply.destination.file == File::G {
-                self.board[origin_rank_usize][7] = Some(rook);
-                self.board[origin_rank_usize][5] = None;
-                let position = Position {
-                    file: File::H,
-                    rank: ply.origin.rank,
-                };
+            } else if ply.destination.0 == 6 {
+                self.board[ply.origin.1][7] = Some(rook);
+                self.board[ply.origin.1][5] = None;
+                let position = Position(7, ply.origin.1);
                 self.bitxor(position.hash(&rook));
-                let position = Position {
-                    file: File::F,
-                    rank: ply.origin.rank,
-                };
+                let position = Position(5, ply.origin.1);
                 self.bitxor(position.hash(&rook));
             }
         }
-        self.board[origin_rank_usize][origin_file_usize] = Some(ply.piece);
+        self.board[ply.origin.1][ply.origin.0] = Some(ply.piece);
         self.bitxor(ply.origin.hash(&ply.piece));
     }
 
@@ -950,7 +910,7 @@ impl Game {
     }
 
     pub fn get_piece(&self, position: &Position) -> Option<Piece> {
-        self.board[usize::from(position.rank)][usize::from(position.file)]
+        self.board[position.1][position.0]
     }
 
     fn get_valid_stepping_plies<S>(
@@ -1164,21 +1124,15 @@ impl Game {
 
         if !self.has_king_moved() {
             let starting_rank = match self.turn {
-                Color::White => Rank::One,
-                _ => Rank::Eight,
+                Color::White => 0,
+                _ => 7,
             };
             if !self.has_rook_h_moved() {
-                let f_start = Position {
-                    file: File::F,
-                    rank: starting_rank,
-                };
+                let f_start = Position(5, starting_rank);
                 match self.get_piece(&f_start) {
                     Some(_) => (),
                     None => {
-                        let g_start = Position {
-                            file: File::G,
-                            rank: starting_rank,
-                        };
+                        let g_start = Position(6, starting_rank);
                         match self.get_piece(&g_start) {
                             Some(_) => (),
                             None => {
@@ -1202,24 +1156,15 @@ impl Game {
             }
 
             if !self.has_rook_a_moved() {
-                let d_start = Position {
-                    file: File::D,
-                    rank: starting_rank,
-                };
+                let d_start = Position(3, starting_rank);
                 match self.get_piece(&d_start) {
                     Some(_) => (),
                     None => {
-                        let c_start = Position {
-                            file: File::C,
-                            rank: starting_rank,
-                        };
+                        let c_start = Position(2, starting_rank);
                         match self.get_piece(&c_start) {
                             Some(_) => (),
                             None => {
-                                let b_start = Position {
-                                    file: File::B,
-                                    rank: starting_rank,
-                                };
+                                let b_start = Position(1, starting_rank);
                                 match self.get_piece(&b_start) {
                                     Some(_) => (),
                                     None => {
@@ -1250,14 +1195,8 @@ impl Game {
 
     pub fn has_king_moved(&self) -> bool {
         let starting_position = match self.turn {
-            Color::White => Position {
-                file: File::E,
-                rank: Rank::One,
-            },
-            _ => Position {
-                file: File::E,
-                rank: Rank::Eight,
-            },
+            Color::White => Position(4, 0),
+            _ => Position(4, 7),
         };
         match self.get_piece(&starting_position) {
             Some(p) => {
@@ -1278,14 +1217,8 @@ impl Game {
 
     pub fn has_rook_a_moved(&self) -> bool {
         let starting_position = match self.turn {
-            Color::White => Position {
-                file: File::A,
-                rank: Rank::One,
-            },
-            _ => Position {
-                file: File::A,
-                rank: Rank::Eight,
-            },
+            Color::White => Position(0, 0),
+            _ => Position(0, 7),
         };
         match self.get_piece(&starting_position) {
             Some(p) => {
@@ -1308,14 +1241,8 @@ impl Game {
 
     pub fn has_rook_h_moved(&self) -> bool {
         let starting_position = match self.turn {
-            Color::White => Position {
-                file: File::H,
-                rank: Rank::One,
-            },
-            _ => Position {
-                file: File::H,
-                rank: Rank::Eight,
-            },
+            Color::White => Position(7, 0),
+            _ => Position(7, 7),
         };
         match self.get_piece(&starting_position) {
             Some(p) => {
@@ -1467,8 +1394,8 @@ impl Game {
                     if !self.does_ply_put_in_check(pl) {
                         valid_plies.append(&mut self.add_promotion_to_pawn_plies(&mut pl));
                     }
-                    if (origin.rank == Rank::Two && self.turn == Color::White)
-                        || (origin.rank == Rank::Seven && self.turn == Color::Black)
+                    if (origin.1 == 1 && self.turn == Color::White)
+                        || (origin.1 == 6 && self.turn == Color::Black)
                     {
                         match destination.step(Direction::None, self.forward) {
                             None => (),
@@ -1540,18 +1467,15 @@ impl Game {
         if last_ply != None {
             let last_ply = *last_ply.unwrap();
             if last_ply.piece.kind == Kind::Pawn {
-                if self.turn == Color::White && origin.rank == Rank::Five {
-                    if last_ply.origin.rank == Rank::Seven
-                        && last_ply.destination.rank == Rank::Five
+                if self.turn == Color::White && origin.1 == 4 {
+                    if last_ply.origin.1 == 6
+                        && last_ply.destination.1 == 4
                     {
                         if let Some(p) = last_ply.destination.step_w() {
                             if &p == origin {
                                 let pl = Ply {
                                     origin: *origin,
-                                    destination: Position {
-                                        file: last_ply.destination.file,
-                                        rank: Rank::Six,
-                                    },
+                                    destination: Position(last_ply.destination.0, 5),
                                     piece: pawn,
                                     target: Some(last_ply.piece),
                                     promotion: None,
@@ -1565,10 +1489,7 @@ impl Game {
                             if &p == origin {
                                 let pl = Ply {
                                     origin: *origin,
-                                    destination: Position {
-                                        file: last_ply.destination.file,
-                                        rank: Rank::Six,
-                                    },
+                                    destination: Position(last_ply.destination.0, 5),
                                     piece: pawn,
                                     target: Some(last_ply.piece),
                                     promotion: None,
@@ -1579,17 +1500,14 @@ impl Game {
                             }
                         }
                     }
-                } else if self.turn == Color::Black && origin.rank == Rank::Four {
-                    if last_ply.origin.rank == Rank::Two && last_ply.destination.rank == Rank::Four
+                } else if self.turn == Color::Black && origin.1 == 3 {
+                    if last_ply.origin.1 == 1 && last_ply.destination.1 == 3
                     {
                         if let Some(p) = last_ply.destination.step_w() {
                             if &p == origin {
                                 let pl = Ply {
                                     origin: *origin,
-                                    destination: Position {
-                                        file: last_ply.destination.file,
-                                        rank: Rank::Three,
-                                    },
+                                    destination: Position(last_ply.destination.0, 2),
                                     piece: pawn,
                                     target: Some(last_ply.piece),
                                     promotion: None,
@@ -1603,10 +1521,7 @@ impl Game {
                             if &p == origin {
                                 let pl = Ply {
                                     origin: *origin,
-                                    destination: Position {
-                                        file: last_ply.destination.file,
-                                        rank: Rank::Three,
-                                    },
+                                    destination: Position(last_ply.destination.0, 2),
                                     piece: pawn,
                                     target: Some(last_ply.piece),
                                     promotion: None,
@@ -1639,8 +1554,8 @@ impl Game {
                     if !self.does_ply_put_in_check(p) {
                         return true;
                     }
-                    if (origin.rank == Rank::Two && self.turn == Color::White)
-                        || (origin.rank == Rank::Seven && self.turn == Color::Black)
+                    if (origin.1 == 1 && self.turn == Color::White)
+                        || (origin.1 == 6 && self.turn == Color::Black)
                     {
                         match destination.step(Direction::None, self.forward) {
                             None => (),
@@ -1712,18 +1627,15 @@ impl Game {
         if last_ply != None {
             let last_ply = *last_ply.unwrap();
             if last_ply.piece.kind == Kind::Pawn {
-                if self.turn == Color::White && origin.rank == Rank::Five {
-                    if last_ply.origin.rank == Rank::Seven
-                        && last_ply.destination.rank == Rank::Five
+                if self.turn == Color::White && origin.1 == 4 {
+                    if last_ply.origin.1 == 6
+                        && last_ply.destination.1 == 4
                     {
                         if let Some(p) = last_ply.destination.step_w() {
                             if &p == origin {
                                 let pl = Ply {
                                     origin: *origin,
-                                    destination: Position {
-                                        file: last_ply.destination.file,
-                                        rank: Rank::Six,
-                                    },
+                                    destination: Position(last_ply.destination.0, 5),
                                     piece: pawn,
                                     target: Some(last_ply.piece),
                                     promotion: None,
@@ -1737,10 +1649,7 @@ impl Game {
                             if &p == origin {
                                 let pl = Ply {
                                     origin: *origin,
-                                    destination: Position {
-                                        file: last_ply.destination.file,
-                                        rank: Rank::Six,
-                                    },
+                                    destination: Position(last_ply.destination.0, 5),
                                     piece: pawn,
                                     target: Some(last_ply.piece),
                                     promotion: None,
@@ -1751,17 +1660,14 @@ impl Game {
                             }
                         }
                     }
-                } else if self.turn == Color::Black && origin.rank == Rank::Four {
-                    if last_ply.origin.rank == Rank::Two && last_ply.destination.rank == Rank::Four
+                } else if self.turn == Color::Black && origin.1 == 3 {
+                    if last_ply.origin.1 == 1 && last_ply.destination.1 == 3
                     {
                         if let Some(p) = last_ply.destination.step_w() {
                             if &p == origin {
                                 let pl = Ply {
                                     origin: *origin,
-                                    destination: Position {
-                                        file: last_ply.destination.file,
-                                        rank: Rank::Three,
-                                    },
+                                    destination: Position(last_ply.destination.0, 2),
                                     piece: pawn,
                                     target: Some(last_ply.piece),
                                     promotion: None,
@@ -1775,10 +1681,7 @@ impl Game {
                             if &p == origin {
                                 let pl = Ply {
                                     origin: *origin,
-                                    destination: Position {
-                                        file: last_ply.destination.file,
-                                        rank: Rank::Three,
-                                    },
+                                    destination: Position(last_ply.destination.0, 2),
                                     piece: pawn,
                                     target: Some(last_ply.piece),
                                     promotion: None,
@@ -1803,8 +1706,8 @@ impl Game {
             Some(destination) => match self.get_piece(&destination) {
                 None => {
                     cnt += 1;
-                    if (origin.rank == Rank::Two && self.turn == Color::White)
-                        || (origin.rank == Rank::Seven && self.turn == Color::Black)
+                    if (origin.1 == 1 && self.turn == Color::White)
+                        || (origin.1 == 6 && self.turn == Color::Black)
                     {
                         match destination.step(Direction::None, self.forward) {
                             None => (),
@@ -1845,9 +1748,9 @@ impl Game {
 
         if let Some(last_ply) = self.history.last() {
             if last_ply.piece.kind == Kind::Pawn {
-                if self.turn == Color::White && origin.rank == Rank::Five {
-                    if last_ply.origin.rank == Rank::Seven
-                        && last_ply.destination.rank == Rank::Five
+                if self.turn == Color::White && origin.1 == 4 {
+                    if last_ply.origin.1 == 6
+                        && last_ply.destination.1 == 4
                     {
                         if let Some(p) = last_ply.destination.step_w() {
                             if &p == origin {
@@ -1859,8 +1762,8 @@ impl Game {
                             }
                         }
                     }
-                } else if self.turn == Color::Black && origin.rank == Rank::Four {
-                    if last_ply.origin.rank == Rank::Two && last_ply.destination.rank == Rank::Four
+                } else if self.turn == Color::Black && origin.1 == 3 {
+                    if last_ply.origin.1 == 1 && last_ply.destination.1 == 3
                     {
                         if let Some(p) = last_ply.destination.step_w() {
                             if &p == origin {
@@ -1880,7 +1783,7 @@ impl Game {
     }
 
     fn add_promotion_to_pawn_plies(&self, ply: &mut Ply) -> Vec<Ply> {
-        if ply.destination.rank == Rank::Eight || ply.destination.rank == Rank::One {
+        if ply.destination.1 == 7 || ply.destination.1 == 0 {
             let mut plies: Vec<Ply> = Vec::with_capacity(4);
             ply.promotion = Some(Piece {
                 color: self.turn,

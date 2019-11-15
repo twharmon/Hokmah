@@ -1,6 +1,5 @@
 use crate::cache::Cache;
 use crate::color::Color;
-use crate::file::File;
 use crate::game::Game;
 use crate::kind::Kind;
 use crate::piece::Piece;
@@ -35,15 +34,10 @@ impl Ply {
 
     pub fn hash(&self, g: &Game) -> u64 {
         let mut hash = g.hash;
-        let destination_rank_usize: usize = self.destination.rank.into();
-        let destination_file_usize: usize = self.destination.file.into();
         if let Some(t) = self.target {
-            match g.board[destination_rank_usize][destination_file_usize] {
+            match g.board[self.destination.1][self.destination.0] {
                 None => {
-                    let position = Position {
-                        rank: self.origin.rank,
-                        file: self.destination.file,
-                    };
+                    let position = Position(self.origin.1, self.destination.0);
                     hash = hash.bitxor(position.hash(&t));
                 }
                 Some(p) => hash = hash.bitxor(self.destination.hash(&p)),
@@ -55,32 +49,20 @@ impl Ply {
         };
         hash = hash.bitxor(self.destination.hash(&new_piece));
 
-        if self.piece.kind == Kind::King && self.origin.file == File::E {
+        if self.piece.kind == Kind::King && self.origin.0 == 4 {
             let rook = Piece {
                 color: g.turn,
                 kind: Kind::Rook,
             };
-            if self.destination.file == File::C {
-                let position = Position {
-                    file: File::A,
-                    rank: self.origin.rank,
-                };
+            if self.destination.0 == 2 {
+                let position = Position(0, self.origin.1);
                 hash = hash.bitxor(position.hash(&rook));
-                let position = Position {
-                    file: File::D,
-                    rank: self.origin.rank,
-                };
+                let position = Position(3, self.origin.1);
                 hash = hash.bitxor(position.hash(&rook));
-            } else if self.destination.file == File::G {
-                let position = Position {
-                    file: File::H,
-                    rank: self.origin.rank,
-                };
+            } else if self.destination.0 == 6 {
+                let position = Position(7, self.origin.1);
                 hash = hash.bitxor(position.hash(&rook));
-                let position = Position {
-                    file: File::F,
-                    rank: self.origin.rank,
-                };
+                let position = Position(5, self.origin.1);
                 hash = hash.bitxor(position.hash(&rook));
             }
         }
@@ -98,15 +80,23 @@ impl Ply {
                 };
                 match self.target {
                     Some(_) => format!(
-                        "{}x{}{}{}",
-                        self.origin.0,
-                        self.destination.0,
-                        self.destination.1,
+                        "{}x{}{}",
+                        match self.origin.0 {
+                            0 => "a",
+                            1 => "b",
+                            2 => "c",
+                            3 => "d",
+                            4 => "e",
+                            5 => "f",
+                            6 => "g",
+                            _ => "h",
+                        },
+                        self.destination,
                         promotion_str
                     ),
                     None => format!(
-                        "{}{}{}",
-                        self.destination.0, self.destination.1, promotion_str
+                        "{}{}",
+                        self.destination, promotion_str
                     ),
                 }
             }
@@ -148,13 +138,22 @@ impl Ply {
             if ply.naive_san() == naive_san {
                 if ply.origin.0 != self.origin.0 {
                     let (san_a, san_b) = naive_san.split_at(1);
-                    return format!("{}{}{}", san_a, self.origin.0, san_b);
+                    return format!("{}{}{}", san_a, match self.origin.0 {
+                        0 => "a",
+                        1 => "b",
+                        2 => "c",
+                        3 => "d",
+                        4 => "e",
+                        5 => "f",
+                        6 => "g",
+                        _ => "h",
+                    }, san_b);
                 } else if ply.origin.1 != self.origin.1 {
                     let (san_a, san_b) = naive_san.split_at(1);
-                    return format!("{}{}{}", san_a, self.origin.1, san_b);
+                    return format!("{}{}{}", san_a, self.origin.1 + 1, san_b);
                 } else {
                     let (san_a, san_b) = naive_san.split_at(1);
-                    return format!("{}{}{}{}", san_a, self.origin.0, self.origin.1, san_b);
+                    return format!("{}{}{}", san_a, self.origin, san_b);
                 }
             }
         }
