@@ -133,7 +133,7 @@ fn minimax(
     valid_plies.best_first_sort(depth, g, maximizing_color, future_cache);
 
     if maximizing_color == g.turn {
-        let mut best_ply = -30_000;
+        let mut best_eval = -30_000;
         for ply in valid_plies {
             g.do_ply(ply, false);
             if depth == 1 && extension > 0 {
@@ -161,20 +161,20 @@ fn minimax(
                 cache,
                 future_cache,
             );
-            best_ply = best_ply.max(eval);
+            best_eval = best_eval.max(eval);
             if depth > 2 {
                 let key = g.hash.bitxor(maximizing_color.hash());
                 future_cache.lock().unwrap().set(key, eval);
             }
             g.revert_last_ply();
-            alpha = alpha.max(best_ply);
+            alpha = alpha.max(best_eval);
             if beta <= alpha {
-                return best_ply;
+                return best_eval;
             }
         }
-        best_ply
+        best_eval
     } else {
-        let mut best_ply = 30_000;
+        let mut best_eval = 30_000;
         for ply in valid_plies {
             g.do_ply(ply, false);
             if depth == 1 && extension > 0 {
@@ -202,18 +202,18 @@ fn minimax(
                 cache,
                 future_cache,
             );
-            best_ply = best_ply.min(eval);
+            best_eval = best_eval.min(eval);
             if depth > 2 {
                 let key = g.hash.bitxor(maximizing_color.hash());
                 future_cache.lock().unwrap().set(key, eval);
             }
             g.revert_last_ply();
-            beta = beta.min(best_ply);
+            beta = beta.min(best_eval);
             if beta <= alpha {
-                return best_ply;
+                return best_eval;
             }
         }
-        best_ply
+        best_eval
     }
 }
 
