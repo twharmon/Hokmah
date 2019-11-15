@@ -1,34 +1,55 @@
+use crate::cache::Cache;
 use crate::color::Color;
 use crate::eval::evaluate;
+use crate::eval::{MAX_EVAL, MIN_EVAL};
 use crate::game::Game;
 use crate::kind::Kind;
 use crate::params::Params;
 use crate::ply::Ply;
 use crate::traits::BestFirstSort;
 use crossbeam::crossbeam_channel;
-use std::time::{Duration, SystemTime};
-use std::ops::{Sub, Div, BitXor};
-use crate::cache::Cache;
-use std::sync::{Arc, Mutex};
 use std::i16;
-use crate::eval::{MIN_EVAL, MAX_EVAL};
+use std::ops::{BitXor, Div, Sub};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime};
 
-pub fn suggest(g: Game, params: Params, limit: Duration, cache: &Arc<Mutex<Cache>>, future_cache: &Arc<Mutex<Cache>>) -> Ply {    
+pub fn suggest(
+    g: Game,
+    params: Params,
+    limit: Duration,
+    cache: &Arc<Mutex<Cache>>,
+    future_cache: &Arc<Mutex<Cache>>,
+) -> Ply {
     let start = SystemTime::now();
     let mut depth = 2;
     let mut ply = search(g.clone(), params, depth, 0, &cache, &future_cache);
-    
+
     while SystemTime::now().sub(limit.div(4)) < start {
         depth += 1;
         ply = search(g.clone(), params, depth, 2, &cache, &future_cache);
     }
 
-    println!("searched {} deep in {} secs (limit: {})", depth, SystemTime::now().duration_since(start).unwrap().as_secs_f32(), limit.as_secs_f32());
+    println!(
+        "searched {} deep in {} secs (limit: {})",
+        depth,
+        SystemTime::now()
+            .duration_since(start)
+            .unwrap()
+            .as_secs_f32(),
+        limit.as_secs_f32()
+    );
 
     ply
 }
 
-pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc<Mutex<Cache>>, future_cache: &Arc<Mutex<Cache>>) -> Ply {
+pub fn search(
+    mut g: Game,
+    params: Params,
+    depth: u8,
+    extension: u8,
+    cache: &Arc<Mutex<Cache>>,
+    future_cache: &Arc<Mutex<Cache>>,
+) -> Ply {
     let valid_plies = g.get_valid_plies();
     let valid_ply_cnt = valid_plies.len();
 
@@ -49,11 +70,21 @@ pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc
                 None => (MIN_EVAL, MAX_EVAL),
             };
             loop {
-                let eval = minimax(depth - 1, &mut g, &params, alpha, beta, maximizing_color, extension, &cache, &future_cache);
+                let eval = minimax(
+                    depth - 1,
+                    &mut g,
+                    &params,
+                    alpha,
+                    beta,
+                    maximizing_color,
+                    extension,
+                    &cache,
+                    &future_cache,
+                );
                 if eval >= alpha && eval <= beta {
                     sender.send((ply, eval)).expect("unable to send");
                     future_cache.lock().unwrap().set(key, eval);
-                    break
+                    break;
                 }
                 if eval < alpha {
                     alpha += alpha_aspiration_window;
@@ -105,11 +136,18 @@ fn minimax(
                 } else {
                     0 - eval
                 }
-            },
+            }
             None => (),
         };
         let eval = evaluate(g, params, maximizing_color);
-        cache.lock().unwrap().set(g.hash, if g.turn == maximizing_color { eval } else { 0 - eval });
+        cache.lock().unwrap().set(
+            g.hash,
+            if g.turn == maximizing_color {
+                eval
+            } else {
+                0 - eval
+            },
+        );
         return eval;
     }
 
@@ -122,12 +160,19 @@ fn minimax(
                     adjusted_eval
                 } else {
                     0 - adjusted_eval
-                }
-            },
+                };
+            }
             None => (),
         };
         let eval = evaluate(g, params, maximizing_color);
-        cache.lock().unwrap().set(g.hash, if g.turn == maximizing_color { eval } else { 0 - eval });
+        cache.lock().unwrap().set(
+            g.hash,
+            if g.turn == maximizing_color {
+                eval
+            } else {
+                0 - eval
+            },
+        );
         return (eval as f32 * (1f32 + (depth as f32 / 1000f32))) as i16;
     }
 
@@ -220,10 +265,10 @@ fn minimax(
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::make_game;
-    use crate::params::Params;
-    use crate::cache::Cache;
     use super::search;
+    use crate::cache::Cache;
+    use crate::params::Params;
+    use crate::tests::make_game;
     use test::Bencher;
 
     const END_GAME_PGN: &'static str = "1. e4 e5 2. Nf3 Nf6 3. Nc3 Nc6 4. Nxe5 Nxe4 5. Nxe4 Nxe5 6. Qf3 Nxf3+ 7. gxf3 Qf6 8. Nxf6+ gxf6 9. d4 d5 10. Bf4 Bf5 11. Bb5+ c6 12. Bxc6+ Kd8 13. Bxb7 Bb4+ 14. c3 Bxc3+ 15. Kd1 Bxb2 16. Bxa8 Bxa1 17. Be5 Be4 18. fxe4 fxe5 19. dxe5 dxe4 20. f3 exf3 21. e6 fxe6 22. Rf1 e5 23. Rxf3 Rf8 24. Ke2 Bd4 25. Bd5 e4 26. Bxe4";

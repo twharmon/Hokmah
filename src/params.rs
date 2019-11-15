@@ -44,7 +44,10 @@ impl Params {
         match rng.gen_range(0, 14) {
             0 => {
                 self.doubled_pawn_penalty = (self.doubled_pawn_penalty as f32 * multiplier) as i16;
-                ("doubled_pawn_penalty".to_string(), self.doubled_pawn_penalty)
+                (
+                    "doubled_pawn_penalty".to_string(),
+                    self.doubled_pawn_penalty,
+                )
             }
             1 => {
                 self.max_pawn_bonus = (self.max_pawn_bonus as f32 * multiplier) as i16;
@@ -78,21 +81,24 @@ impl Params {
                 )
             }
             8 => {
-                self.lonely_king_cornered_penalty_factor = (self.lonely_king_cornered_penalty_factor as f32 * multiplier) as i16;
+                self.lonely_king_cornered_penalty_factor =
+                    (self.lonely_king_cornered_penalty_factor as f32 * multiplier) as i16;
                 (
                     "lonely_king_cornered_penalty_factor".to_string(),
                     self.lonely_king_cornered_penalty_factor,
                 )
             }
             9 => {
-                self.max_pawn_protection_reward = (self.max_pawn_protection_reward as f32 * multiplier) as i16;
+                self.max_pawn_protection_reward =
+                    (self.max_pawn_protection_reward as f32 * multiplier) as i16;
                 (
                     "max_pawn_protection_reward".to_string(),
                     self.max_pawn_protection_reward,
                 )
             }
             10 => {
-                self.max_king_corner_reward = (self.max_king_corner_reward as f32 * multiplier) as i16;
+                self.max_king_corner_reward =
+                    (self.max_king_corner_reward as f32 * multiplier) as i16;
                 (
                     "max_king_corner_reward".to_string(),
                     self.max_king_corner_reward,
@@ -104,7 +110,10 @@ impl Params {
             }
             _ => {
                 self.double_bishop_reward = (self.double_bishop_reward as f32 * multiplier) as i16;
-                ("double_bishop_reward".to_string(), self.double_bishop_reward)
+                (
+                    "double_bishop_reward".to_string(),
+                    self.double_bishop_reward,
+                )
             }
         }
     }

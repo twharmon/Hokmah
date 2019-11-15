@@ -2,14 +2,15 @@
 #![feature(shrink_to)]
 extern crate crossbeam;
 extern crate rand;
+extern crate regex;
 extern crate serde;
 extern crate serde_yaml;
 extern crate test;
-extern crate regex;
 #[macro_use]
 extern crate lazy_static;
 
 mod board;
+pub mod cache;
 mod color;
 mod direction;
 pub mod engine;
@@ -17,6 +18,7 @@ pub mod eval;
 mod file;
 pub mod game;
 mod kind;
+pub mod opening_book;
 pub mod params;
 mod piece;
 mod ply;
@@ -24,8 +26,6 @@ mod position;
 mod rank;
 pub mod trainer;
 mod traits;
-pub mod cache;
-pub mod opening_book;
 
 #[cfg(test)]
 mod tests {
@@ -75,10 +75,9 @@ mod tests {
         let valid_plies = g.get_valid_plies();
         for ply in &valid_plies {
             if &ply.uci() == s || &ply.san(&valid_plies) == s {
-                return true
+                return true;
             }
         }
         false
     }
-
 }

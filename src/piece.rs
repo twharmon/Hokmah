@@ -1,9 +1,7 @@
 use crate::color::Color;
-use crate::file::File;
 use crate::kind::Kind;
 use crate::params::Params;
 use crate::position::Position;
-use crate::rank::Rank;
 use std::ops::BitXor;
 
 #[derive(Copy, Clone, PartialEq)]
@@ -31,43 +29,43 @@ impl Piece {
     pub fn value(&self, position: &Position, params: &Params) -> i16 {
         match self.kind {
             Kind::Pawn => match self.color {
-                Color::White => match position.rank {
-                    Rank::Two => 100,
-                    Rank::Three => 100,
-                    Rank::Four => 100 + params.max_pawn_bonus / 8,
-                    Rank::Five => 100 + params.max_pawn_bonus / 4,
-                    Rank::Six => 100 + params.max_pawn_bonus / 2,
-                    Rank::Seven => 100 + params.max_pawn_bonus,
+                Color::White => match position.1 {
+                    1 => 100,
+                    2 => 100,
+                    3 => 100 + params.max_pawn_bonus / 8,
+                    4 => 100 + params.max_pawn_bonus / 4,
+                    5 => 100 + params.max_pawn_bonus / 2,
+                    6 => 100 + params.max_pawn_bonus,
                     _ => 0,
                 },
-                Color::Black => match position.rank {
-                    Rank::Two => 100 + params.max_pawn_bonus,
-                    Rank::Three => 100 + params.max_pawn_bonus / 2,
-                    Rank::Four => 100 + params.max_pawn_bonus / 4,
-                    Rank::Five => 100 + params.max_pawn_bonus / 8,
-                    Rank::Six => 100,
-                    Rank::Seven => 100,
+                Color::Black => match position.1 {
+                    1 => 100 + params.max_pawn_bonus,
+                    2 => 100 + params.max_pawn_bonus / 2,
+                    3 => 100 + params.max_pawn_bonus / 4,
+                    4 => 100 + params.max_pawn_bonus / 8,
+                    5 => 100,
+                    6 => 100,
                     _ => 0,
                 },
             },
             Kind::Knight => {
                 let mut val = params.knight_value;
-                match position.rank {
-                    Rank::Two => val += params.max_knight_bonus / 10,
-                    Rank::Three => val += params.max_knight_bonus / 4,
-                    Rank::Four => val += params.max_knight_bonus / 2,
-                    Rank::Five => val += params.max_knight_bonus / 2,
-                    Rank::Six => val += params.max_knight_bonus / 4,
-                    Rank::Seven => val += params.max_knight_bonus / 10,
+                match position.1 {
+                    1 => val += params.max_knight_bonus / 10,
+                    2 => val += params.max_knight_bonus / 4,
+                    3 => val += params.max_knight_bonus / 2,
+                    4 => val += params.max_knight_bonus / 2,
+                    5 => val += params.max_knight_bonus / 4,
+                    6 => val += params.max_knight_bonus / 10,
                     _ => (),
                 };
-                match position.file {
-                    File::B => val += params.max_knight_bonus / 10,
-                    File::C => val += params.max_knight_bonus / 4,
-                    File::D => val += params.max_knight_bonus / 2,
-                    File::E => val += params.max_knight_bonus / 2,
-                    File::F => val += params.max_knight_bonus / 4,
-                    File::G => val += params.max_knight_bonus / 10,
+                match position.0 {
+                    1 => val += params.max_knight_bonus / 10,
+                    2 => val += params.max_knight_bonus / 4,
+                    3 => val += params.max_knight_bonus / 2,
+                    4 => val += params.max_knight_bonus / 2,
+                    5 => val += params.max_knight_bonus / 4,
+                    6 => val += params.max_knight_bonus / 10,
                     _ => (),
                 };
                 val

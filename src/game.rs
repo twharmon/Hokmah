@@ -97,7 +97,7 @@ impl Game {
     pub fn try_plies(&mut self, plies: &str) -> Result<(), String> {
         for ply in plies.split(" ") {
             if PGN_NUMBER.is_match(ply) {
-                continue
+                continue;
             }
             if self.is_over {
                 return Err(String::from("Game is already over"));
@@ -113,12 +113,15 @@ impl Game {
         let origin_rank_usize: usize = ply.origin.rank.into();
         let origin_file_usize: usize = ply.origin.file.into();
         if let Some(t) = ply.target {
-            match self.board[destination_rank_usize][destination_file_usize] {
+            match self.board[ply.destination.1][ply.destination.0] {
                 None => {
-                    let position = Position { rank: ply.origin.rank, file: ply.destination.file };
+                    let position = Position {
+                        rank: ply.origin.rank,
+                        file: ply.destination.file,
+                    };
                     self.bitxor(position.hash(&t));
-                    self.board[origin_rank_usize][destination_file_usize] = None;
-                },
+                    self.board[origin_rank_usize][ply.destination.0] = None;
+                }
                 Some(p) => self.bitxor(ply.destination.hash(&p)),
             };
         }
@@ -126,7 +129,7 @@ impl Game {
             Some(p) => p,
             None => ply.piece,
         };
-        self.board[destination_rank_usize][destination_file_usize] = Some(new_piece);
+        self.board[ply.destination.1][ply.destination.0] = Some(new_piece);
         self.bitxor(ply.destination.hash(&new_piece));
 
         if ply.piece.kind == Kind::King && ply.origin.file == File::E {
@@ -137,16 +140,28 @@ impl Game {
             if ply.destination.file == File::C {
                 self.board[origin_rank_usize][0] = None;
                 self.board[origin_rank_usize][3] = Some(rook);
-                let position = Position { file: File::A, rank: ply.origin.rank };
+                let position = Position {
+                    file: File::A,
+                    rank: ply.origin.rank,
+                };
                 self.bitxor(position.hash(&rook));
-                let position = Position { file: File::D, rank: ply.origin.rank };
+                let position = Position {
+                    file: File::D,
+                    rank: ply.origin.rank,
+                };
                 self.bitxor(position.hash(&rook));
             } else if ply.destination.file == File::G {
                 self.board[origin_rank_usize][7] = None;
                 self.board[origin_rank_usize][5] = Some(rook);
-                let position = Position { file: File::H, rank: ply.origin.rank };
+                let position = Position {
+                    file: File::H,
+                    rank: ply.origin.rank,
+                };
                 self.bitxor(position.hash(&rook));
-                let position = Position { file: File::F, rank: ply.origin.rank };
+                let position = Position {
+                    file: File::F,
+                    rank: ply.origin.rank,
+                };
                 self.bitxor(position.hash(&rook));
             }
         }
@@ -187,28 +202,34 @@ impl Game {
                         Some(p) => {
                             if p.piece.kind == Kind::Pawn
                                 && p.destination.file == ply.destination.file
-                                && ((p.origin.rank == Rank::Two && p.destination.rank == Rank::Four)
+                                && ((p.origin.rank == Rank::Two
+                                    && p.destination.rank == Rank::Four)
                                     || (p.origin.rank == Rank::Seven
                                         && p.destination.rank == Rank::Five))
                             {
-                                let (en_passant_target_rank_usize, en_passant_target_rank) = match self.turn {
-                                    Color::White => (3, Rank::Four),
-                                    Color::Black => (4, Rank::Five),
-                                };
+                                let (en_passant_target_rank_usize, en_passant_target_rank) =
+                                    match self.turn {
+                                        Color::White => (3, Rank::Four),
+                                        Color::Black => (4, Rank::Five),
+                                    };
                                 self.board[en_passant_target_rank_usize][destination_file_usize] =
                                     Some(t);
-                                let position = Position { file: ply.destination.file, rank: en_passant_target_rank };
+                                let position = Position {
+                                    file: ply.destination.file,
+                                    rank: en_passant_target_rank,
+                                };
                                 self.bitxor(position.hash(&t));
                                 self.board[destination_rank_usize][destination_file_usize] = None;
                             } else {
-                                self.board[destination_rank_usize][destination_file_usize] = Some(t);
+                                self.board[destination_rank_usize][destination_file_usize] =
+                                    Some(t);
                                 self.bitxor(ply.destination.hash(&t));
                             }
                         }
                         None => {
                             self.board[destination_rank_usize][destination_file_usize] = Some(t);
                             self.bitxor(ply.destination.hash(&t));
-                        },
+                        }
                     };
                 } else {
                     self.board[destination_rank_usize][destination_file_usize] = Some(t);
@@ -223,10 +244,9 @@ impl Game {
         }
         let new_piece = match ply.promotion {
             Some(p) => p,
-            None => ply.piece
+            None => ply.piece,
         };
         self.bitxor(ply.destination.hash(&new_piece));
-
 
         self.switch_turns();
         self.bitxor(1);
@@ -239,16 +259,28 @@ impl Game {
             if ply.destination.file == File::C {
                 self.board[origin_rank_usize][0] = Some(rook);
                 self.board[origin_rank_usize][3] = None;
-                let position = Position { file: File::A, rank: ply.origin.rank };
+                let position = Position {
+                    file: File::A,
+                    rank: ply.origin.rank,
+                };
                 self.bitxor(position.hash(&rook));
-                let position = Position { file: File::D, rank: ply.origin.rank };
+                let position = Position {
+                    file: File::D,
+                    rank: ply.origin.rank,
+                };
                 self.bitxor(position.hash(&rook));
             } else if ply.destination.file == File::G {
                 self.board[origin_rank_usize][7] = Some(rook);
                 self.board[origin_rank_usize][5] = None;
-                let position = Position { file: File::H, rank: ply.origin.rank };
+                let position = Position {
+                    file: File::H,
+                    rank: ply.origin.rank,
+                };
                 self.bitxor(position.hash(&rook));
-                let position = Position { file: File::F, rank: ply.origin.rank };
+                let position = Position {
+                    file: File::F,
+                    rank: ply.origin.rank,
+                };
                 self.bitxor(position.hash(&rook));
             }
         }
@@ -368,8 +400,8 @@ impl Game {
                         _ => {
                             white_piece_cnt += 1;
                             if white_piece_cnt > 1 {
-                                return false
-                            } 
+                                return false;
+                            }
                             match p.kind {
                                 Kind::Bishop => {
                                     if pos.is_black() {
@@ -388,8 +420,8 @@ impl Game {
                         _ => {
                             black_piece_cnt += 1;
                             if black_piece_cnt > 1 {
-                                return false
-                            } 
+                                return false;
+                            }
                             match p.kind {
                                 Kind::Bishop => {
                                     if pos.is_black() {
@@ -436,11 +468,11 @@ impl Game {
             Color::White => {
                 self.turn = Color::Black;
                 self.forward = Direction::Dec;
-            },
+            }
             _ => {
                 self.turn = Color::White;
                 self.forward = Direction::Inc;
-            },
+            }
         };
     }
 
@@ -826,7 +858,7 @@ impl Game {
         if self.is_in_check() {
             self.switch_turns();
             self.revert_last_ply();
-            return true
+            return true;
         }
         self.switch_turns();
         self.revert_last_ply();
@@ -921,7 +953,12 @@ impl Game {
         self.board[usize::from(position.rank)][usize::from(position.file)]
     }
 
-    fn get_valid_stepping_plies<S>(&mut self, piece: Piece, origin: &Position, stepper: S) -> Vec<Ply>
+    fn get_valid_stepping_plies<S>(
+        &mut self,
+        piece: Piece,
+        origin: &Position,
+        stepper: S,
+    ) -> Vec<Ply>
     where
         S: Fn(&Position) -> Option<Position>,
     {
@@ -958,7 +995,7 @@ impl Game {
                         if !self.does_ply_put_in_check(pl) {
                             valid_plies.push(pl);
                         }
-                    },
+                    }
                 },
                 None => break,
             };
@@ -1213,14 +1250,22 @@ impl Game {
 
     pub fn has_king_moved(&self) -> bool {
         let starting_position = match self.turn {
-            Color::White => Position { file: File::E, rank: Rank::One },
-            _ => Position { file: File::E, rank: Rank::Eight },
+            Color::White => Position {
+                file: File::E,
+                rank: Rank::One,
+            },
+            _ => Position {
+                file: File::E,
+                rank: Rank::Eight,
+            },
         };
         match self.get_piece(&starting_position) {
-            Some(p) => if p.kind != Kind::King || p.color != self.turn {
-                return true
-            },
-            None => return true
+            Some(p) => {
+                if p.kind != Kind::King || p.color != self.turn {
+                    return true;
+                }
+            }
+            None => return true,
         };
 
         for pl in &self.history {
@@ -1233,14 +1278,22 @@ impl Game {
 
     pub fn has_rook_a_moved(&self) -> bool {
         let starting_position = match self.turn {
-            Color::White => Position { file: File::A, rank: Rank::One },
-            _ => Position { file: File::A, rank: Rank::Eight },
+            Color::White => Position {
+                file: File::A,
+                rank: Rank::One,
+            },
+            _ => Position {
+                file: File::A,
+                rank: Rank::Eight,
+            },
         };
         match self.get_piece(&starting_position) {
-            Some(p) => if p.kind != Kind::Rook || p.color != self.turn {
-                return true
-            },
-            None => return true
+            Some(p) => {
+                if p.kind != Kind::Rook || p.color != self.turn {
+                    return true;
+                }
+            }
+            None => return true,
         };
         for ply in &self.history {
             if ply.origin == starting_position {
@@ -1255,14 +1308,22 @@ impl Game {
 
     pub fn has_rook_h_moved(&self) -> bool {
         let starting_position = match self.turn {
-            Color::White => Position { file: File::H, rank: Rank::One },
-            _ => Position { file: File::H, rank: Rank::Eight },
+            Color::White => Position {
+                file: File::H,
+                rank: Rank::One,
+            },
+            _ => Position {
+                file: File::H,
+                rank: Rank::Eight,
+            },
         };
         match self.get_piece(&starting_position) {
-            Some(p) => if p.kind != Kind::Rook || p.color != self.turn {
-                return true
-            },
-            None => return true
+            Some(p) => {
+                if p.kind != Kind::Rook || p.color != self.turn {
+                    return true;
+                }
+            }
+            None => return true,
         };
         for ply in &self.history {
             if ply.origin == starting_position {
@@ -1378,7 +1439,7 @@ impl Game {
                 } else {
                     None
                 }
-            },
+            }
         }
     }
 
@@ -1870,8 +1931,11 @@ impl Game {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::{make_game, assert_ply_valid, assert_ply_invalid, assert_reverts, assert_draw, assert_not_draw};
     use crate::game::Game;
+    use crate::tests::{
+        assert_draw, assert_not_draw, assert_ply_invalid, assert_ply_valid, assert_reverts,
+        make_game,
+    };
     use test::Bencher;
 
     #[test]
@@ -1907,7 +1971,10 @@ mod tests {
 
     #[test]
     fn it_reverts_non_capturing_promotion_ply() {
-        assert_reverts("1. e4 e5 2. a3 d5 3. exd5 Qe7 4. d6 Qe6 5. d7+ Ke7 6.", "d8=Q+");
+        assert_reverts(
+            "1. e4 e5 2. a3 d5 3. exd5 Qe7 4. d6 Qe6 5. d7+ Ke7 6.",
+            "d8=Q+",
+        );
     }
 
     #[test]
@@ -1924,7 +1991,7 @@ mod tests {
     fn it_reverts_black_west_en_passant_ply() {
         assert_reverts("a3 e5 a4 e4 d4", "exd3");
     }
-    
+
     #[test]
     fn it_allows_black_east_en_passant_ply_as_valid() {
         assert_ply_valid("a2a3 e7e5 a3a4 e5e4 f2f4", "e4f3");
@@ -1934,12 +2001,12 @@ mod tests {
     fn it_reverts_black_east_en_passant_ply() {
         assert_reverts("a2a3 e7e5 a3a4 e5e4 f2f4", "e4f3");
     }
-    
+
     #[test]
     fn it_forbids_black_west_expired_en_passant() {
         assert_ply_invalid("a2a3 e7e5 a3a4 e5e4 d2d4 a7a6", "e4d3");
     }
-    
+
     #[test]
     fn it_forbids_black_east_expired_en_passant() {
         assert_ply_invalid("a2a3 e7e5 a3a4 e5e4 f2f4 a7a6", "e4f3");
@@ -1964,12 +2031,12 @@ mod tests {
     fn it_reverts_white_east_en_passant_ply() {
         assert_reverts("d2d4 a7a5 d4d5 a5a4 a2a3 e7e5", "d5e6");
     }
-    
+
     #[test]
     fn it_forbids_white_west_expired_en_passant() {
         assert_ply_invalid("d2d4 a7a5 d4d5 a5a4 a2a3 e7e5 b2b3", "d5e6");
     }
-    
+
     #[test]
     fn it_forbids_white_east_expired_en_passant() {
         assert_ply_invalid("d2d4 a7a5 d4d5 a5a4 a2a3 e7e5 b2b3", "d5c6");
@@ -2022,17 +2089,26 @@ mod tests {
 
     #[test]
     fn it_forbids_white_queenside_castle_when_king_has_moved() {
-        assert_ply_invalid("e4 e5 Nf3 a6 Bxa6 bxa6 Ke2 a5 Ke1 a4 Nc3 a3 b3 c6 Bxa3 c5 Qe2", "O-O-O");
+        assert_ply_invalid(
+            "e4 e5 Nf3 a6 Bxa6 bxa6 Ke2 a5 Ke1 a4 Nc3 a3 b3 c6 Bxa3 c5 Qe2",
+            "O-O-O",
+        );
     }
 
     #[test]
     fn it_forbids_white_kingside_castle_when_king_has_moved() {
-        assert_ply_invalid("e4 e5 Nf3 a6 Bxa6 bxa6 Ke2 a5 Ke1 a4 Nc3 a3 b3 c6 Bxa3 c5 Qe2", "O-O");
+        assert_ply_invalid(
+            "e4 e5 Nf3 a6 Bxa6 bxa6 Ke2 a5 Ke1 a4 Nc3 a3 b3 c6 Bxa3 c5 Qe2",
+            "O-O",
+        );
     }
 
     #[test]
     fn it_forbids_white_queenside_castle_when_rook_has_moved() {
-        assert_ply_invalid("1. d4 d5 2. Nc3 Nc6 3. Bf4 Nf6 4. Qd3 e5 5. Rb1 a6 6. Ra1 a5", "O-O-O");
+        assert_ply_invalid(
+            "1. d4 d5 2. Nc3 Nc6 3. Bf4 Nf6 4. Qd3 e5 5. Rb1 a6 6. Ra1 a5",
+            "O-O-O",
+        );
     }
 
     #[test]
@@ -2072,12 +2148,18 @@ mod tests {
 
     #[test]
     fn it_allows_black_queenside_castle_when_a8_under_attack() {
-        assert_ply_valid("1. g3 d6 2. Bg2 b6 3. a3 Be6 4. a4 Na6 5. a5 Qd7 6. b3", "O-O-O");
+        assert_ply_valid(
+            "1. g3 d6 2. Bg2 b6 3. a3 Be6 4. a4 Na6 5. a5 Qd7 6. b3",
+            "O-O-O",
+        );
     }
 
     #[test]
     fn it_allows_black_queenside_castle_when_b8_under_attack() {
-        assert_ply_valid("1. d4 d5 2. Bf4 Bg4 3. Nc3 Na6 4. Nf3 Qd7 5. h3 c6 6. hxg4", "O-O-O");
+        assert_ply_valid(
+            "1. d4 d5 2. Bf4 Bg4 3. Nc3 Na6 4. Nf3 Qd7 5. h3 c6 6. hxg4",
+            "O-O-O",
+        );
     }
 
     #[test]
@@ -2087,7 +2169,10 @@ mod tests {
 
     #[test]
     fn it_forbids_black_queenside_castle_when_in_check() {
-        assert_ply_invalid("1. e3 d5 2. Qf3 Nc6 3. Nc3 Bh3 4. Qe4 Qd6 5. a3 e5 6. Qxe5+", "O-O-O");
+        assert_ply_invalid(
+            "1. e3 d5 2. Qf3 Nc6 3. Nc3 Bh3 4. Qe4 Qd6 5. a3 e5 6. Qxe5+",
+            "O-O-O",
+        );
     }
 
     #[test]
@@ -2102,7 +2187,10 @@ mod tests {
 
     #[test]
     fn it_forbids_black_queenside_castle_when_d8_under_attack() {
-        assert_ply_invalid("1. d4 d5 2. Bg5 Nc6 3. a3 Bg4 4. a4 e5 5. a5 Qd6 6. a6", "O-O-O");
+        assert_ply_invalid(
+            "1. d4 d5 2. Bg5 Nc6 3. a3 Bg4 4. a4 e5 5. a5 Qd6 6. a6",
+            "O-O-O",
+        );
     }
 
     #[test]
@@ -2112,22 +2200,34 @@ mod tests {
 
     #[test]
     fn it_forbids_black_queenside_castle_when_king_has_moved() {
-        assert_ply_invalid("1. e4 d5 2. Nc3 Bh3 3. a3 Qd6 4. a4 Nc6 5. a5 Kd8 6. a6 Ke8 7. b3", "O-O-O");
+        assert_ply_invalid(
+            "1. e4 d5 2. Nc3 Bh3 3. a3 Qd6 4. a4 Nc6 5. a5 Kd8 6. a6 Ke8 7. b3",
+            "O-O-O",
+        );
     }
 
     #[test]
     fn it_forbids_black_kingside_castle_when_king_has_moved() {
-        assert_ply_invalid("1. e4 e5 2. Nf3 Ba3 3. Nc3 Nf6 4. d4 Ke7 5. d5 Ke8 6. d6", "O-O");
+        assert_ply_invalid(
+            "1. e4 e5 2. Nf3 Ba3 3. Nc3 Nf6 4. d4 Ke7 5. d5 Ke8 6. d6",
+            "O-O",
+        );
     }
 
     #[test]
     fn it_forbids_black_queenside_castle_when_rook_has_moved() {
-        assert_ply_invalid("1. e4 d5 2. Nc3 Bh3 3. a3 Nc6 4. a4 Qd6 5. a5 Rd8 6. a6 Ra8 7. b3", "O-O-O");
+        assert_ply_invalid(
+            "1. e4 d5 2. Nc3 Bh3 3. a3 Nc6 4. a4 Qd6 5. a5 Rd8 6. a6 Ra8 7. b3",
+            "O-O-O",
+        );
     }
 
     #[test]
     fn it_forbids_black_kingside_castle_when_rook_has_moved() {
-        assert_ply_invalid("1. e4 e5 2. Nc3 Ba3 3. Nf3 Nf6 4. b3 Rg8 5. b4 Rh8 6. b5", "O-O");
+        assert_ply_invalid(
+            "1. e4 e5 2. Nc3 Ba3 3. Nf3 Nf6 4. b3 Rg8 5. b4 Rh8 6. b5",
+            "O-O",
+        );
     }
 
     #[test]
@@ -2187,7 +2287,9 @@ mod tests {
 
     #[test]
     fn it_doesnt_draw_when_3_fold_rep_diff_alailable_moves() {
-        assert_not_draw("1. e3 e6 2. Bd3 Bd6 3. Nf3 Nf6 4. Rg1 Rg8 5. Rh1 Rh8 6. Rg1 Rg8 7. Rh1 Rh8");
+        assert_not_draw(
+            "1. e3 e6 2. Bd3 Bd6 3. Nf3 Nf6 4. Rg1 Rg8 5. Rh1 Rh8 6. Rg1 Rg8 7. Rh1 Rh8",
+        );
     }
 
     #[test]

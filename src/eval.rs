@@ -1,11 +1,9 @@
 use crate::color::Color;
-use crate::file::File;
 use crate::game::Game;
 use crate::kind::Kind;
-use crate::position::Position;
 use crate::params::Params;
+use crate::position::Position;
 use crate::position::{ALL_POSITIONS, CENTER_POSITIONS};
-use crate::rank::Rank;
 
 pub const MIN_EVAL: i16 = -30_000;
 pub const MAX_EVAL: i16 = 30_000;
@@ -20,10 +18,10 @@ pub fn evaluate(game: &mut Game, params: &Params, maximizing_player_color: Color
                 MAX_EVAL
             };
         }
-        return 0
+        return 0;
     }
     if game.is_draw(has_valid_plies) {
-        return 0
+        return 0;
     }
 
     let hist_len = game.history.len();
@@ -40,14 +38,14 @@ pub fn evaluate(game: &mut Game, params: &Params, maximizing_player_color: Color
                     value += val;
                     match p.kind {
                         Kind::Bishop => player_bishop_cnt += 1,
-                        Kind::Pawn => player_pawn_cnts[usize::from(position.file)] += 1,
+                        Kind::Pawn => player_pawn_cnts[position.0] += 1,
                         _ => (),
                     };
                 } else {
                     value -= val;
                     match p.kind {
                         Kind::Bishop => enemy_bishop_cnt += 1,
-                        Kind::Pawn => enemy_pawn_cnts[usize::from(position.file)] += 1,
+                        Kind::Pawn => enemy_pawn_cnts[position.0] += 1,
                         _ => (),
                     };
                 }
@@ -79,10 +77,8 @@ pub fn evaluate(game: &mut Game, params: &Params, maximizing_player_color: Color
             _ => Color::White,
         };
         for position in &CENTER_POSITIONS {
-            value -=
-                params.center_control_bonus * game.count_attackers(position, &enemy_color);
-            value +=
-                params.center_control_bonus * game.count_attackers(position, &game.turn);
+            value -= params.center_control_bonus * game.count_attackers(position, &enemy_color);
+            value += params.center_control_bonus * game.count_attackers(position, &game.turn);
         }
     }
 
@@ -93,20 +89,21 @@ pub fn evaluate(game: &mut Game, params: &Params, maximizing_player_color: Color
 
     let player_naive_material = game.get_player_naive_material();
     let enemy_naive_material = game.get_enemy_naive_material();
-    
+
     if player_naive_material + enemy_naive_material > 40 {
         let valid_ply_cnt_diff = game.valid_non_king_plies_diff();
-        value += ((valid_ply_cnt_diff as f32 / 15f32).min(1f32) * params.many_moves_bonus as f32) as i16;
+        value +=
+            ((valid_ply_cnt_diff as f32 / 15f32).min(1f32) * params.many_moves_bonus as f32) as i16;
     }
 
     if player_naive_material < 10 {
-        value -=
-            get_lonely_king_cornered_penalty(game, &player_king_position) * params.lonely_king_cornered_penalty_factor;
+        value -= get_lonely_king_cornered_penalty(game, &player_king_position)
+            * params.lonely_king_cornered_penalty_factor;
     }
     if enemy_naive_material < 10 {
         game.switch_turns();
-        value +=
-            get_lonely_king_cornered_penalty(game, &enemy_king_position) * params.lonely_king_cornered_penalty_factor;
+        value += get_lonely_king_cornered_penalty(game, &enemy_king_position)
+            * params.lonely_king_cornered_penalty_factor;
         game.switch_turns();
     }
 
@@ -128,58 +125,102 @@ pub fn evaluate(game: &mut Game, params: &Params, maximizing_player_color: Color
 }
 
 fn get_king_protection_reward(game: &Game, params: &Params, king_position: &Position) -> i16 {
-    match king_position.file {
-        File::D | File::E => return 0,
+    match king_position.0 {
+        3 | 4 => return 0,
         _ => (),
     };
-    if (game.turn == Color::White && king_position.rank != Rank::One) || (game.turn == Color::Black && king_position.rank != Rank::Eight) {
-        return 0
+    if (game.turn == Color::White && king_position.1 != 0)
+        || (game.turn == Color::Black && king_position.1 != 7)
+    {
+        return 0;
     }
-    
+
     let mut reward = 0;
-    match king_position.file {
-        File::A => reward += params.max_king_corner_reward / 2,
-        File::B => if has_starting_rank_left_rook(game, king_position.file.into(), king_position.rank.into()) { return 0 } else { reward += params.max_king_corner_reward },
-        File::C => if has_starting_rank_left_rook(game, king_position.file.into(), king_position.rank.into()) { return 0 } else { reward += params.max_king_corner_reward / 2 },
-        
-        File::H => reward += params.max_king_corner_reward / 2,
-        File::G => if has_starting_rank_right_rook(game, king_position.file.into(), king_position.rank.into()) { return 0 } else { reward += params.max_king_corner_reward },
-        File::F => if has_starting_rank_right_rook(game, king_position.file.into(), king_position.rank.into()) { return 0 } else { reward += params.max_king_corner_reward / 2 },
+    match king_position.0 {
+        0 => reward += params.max_king_corner_reward / 2,
+        1 => {
+            if has_starting_rank_left_rook(
+                game,
+                king_position.0,
+                king_position.1,
+            ) {
+                return 0;
+            } else {
+                reward += params.max_king_corner_reward
+            }
+        }
+        2 => {
+            if has_starting_rank_left_rook(
+                game,
+                king_position.0,
+                king_position.1,
+            ) {
+                return 0;
+            } else {
+                reward += params.max_king_corner_reward / 2
+            }
+        }
+
+        7 => reward += params.max_king_corner_reward / 2,
+        6 => {
+            if has_starting_rank_right_rook(
+                game,
+                king_position.0,
+                king_position.1,
+            ) {
+                return 0;
+            } else {
+                reward += params.max_king_corner_reward
+            }
+        }
+        5 => {
+            if has_starting_rank_right_rook(
+                game,
+                king_position.0,
+                king_position.1,
+            ) {
+                return 0;
+            } else {
+                reward += params.max_king_corner_reward / 2
+            }
+        }
 
         _ => (),
     };
-    
+
     match game.turn {
         Color::White => {
             reward += get_protecting_pawn_reward(game, king_position.step_n(), params);
             reward += get_protecting_pawn_reward(game, king_position.step_ne(), params);
             reward += get_protecting_pawn_reward(game, king_position.step_nw(), params);
             reward += get_protecting_pawn_reward(game, king_position.step_nn(), params);
-            match king_position.file {
-                File::A | File::B | File::C => reward += get_protecting_pawn_reward(game, king_position.step_nnw(), params),
-                _ => reward += get_protecting_pawn_reward(game, king_position.step_nne(), params),
-            };
-        },
+            if king_position.0 < 3 {
+                reward += get_protecting_pawn_reward(game, king_position.step_nnw(), params);
+            } else {
+                reward += get_protecting_pawn_reward(game, king_position.step_nne(), params);
+            }
+        }
         _ => {
             reward += get_protecting_pawn_reward(game, king_position.step_s(), params);
             reward += get_protecting_pawn_reward(game, king_position.step_se(), params);
             reward += get_protecting_pawn_reward(game, king_position.step_sw(), params);
             reward += get_protecting_pawn_reward(game, king_position.step_ss(), params);
-            match king_position.file {
-                File::A | File::B | File::C => reward += get_protecting_pawn_reward(game, king_position.step_ssw(), params),
-                _ => reward += get_protecting_pawn_reward(game, king_position.step_sse(), params),
-            };
-        },
+            if king_position.0 < 3 {
+                reward += get_protecting_pawn_reward(game, king_position.step_ssw(), params);
+            } else {
+                reward += get_protecting_pawn_reward(game, king_position.step_sse(), params);
+            }
+        }
     };
     reward
 }
 
 fn has_starting_rank_right_rook(game: &Game, king_file: usize, king_rank: usize) -> bool {
-     for f in king_file + 1..8 {
+    for f in king_file + 1..8 {
         match game.board[king_rank][f] {
             Some(p) => {
                 if p.kind == Kind::Rook && p.color == game.turn {
-                    return true
+                    return true;
                 }
             }
             None => (),
@@ -189,11 +230,11 @@ fn has_starting_rank_right_rook(game: &Game, king_file: usize, king_rank: usize)
 }
 
 fn has_starting_rank_left_rook(game: &Game, king_file: usize, king_rank: usize) -> bool {
-     for f in 0..king_file {
+    for f in 0..king_file {
         match game.board[king_rank][f] {
             Some(p) => {
                 if p.kind == Kind::Rook && p.color == game.turn {
-                    return true
+                    return true;
                 }
             }
             None => (),
@@ -220,16 +261,16 @@ fn get_protecting_pawn_reward(game: &Game, position: Option<Position>, params: &
 
 fn get_lonely_king_cornered_penalty(game: &Game, king_position: &Position) -> i16 {
     let mut penalty = 0;
-    match king_position.file {
-        File::A | File::H => penalty += 20,
-        File::B | File::G => penalty += 15,
-        File::C | File::F => penalty += 10,
+    match king_position.0 {
+        0 | 7 => penalty += 20,
+        1 | 6 => penalty += 15,
+        2 | 5 => penalty += 10,
         _ => (),
     };
-    match king_position.rank {
-        Rank::One | Rank::Eight => penalty += 20,
-        Rank::Two | Rank::Seven => penalty += 15,
-        Rank::Three | Rank::Six => penalty += 10,
+    match king_position.1 {
+        0 | 7 => penalty += 20,
+        1 | 6 => penalty += 15,
+        2 | 5 => penalty += 10,
         _ => (),
     };
 
@@ -265,13 +306,15 @@ fn get_lonely_king_cornered_penalty(game: &Game, king_position: &Position) -> i1
 fn get_immediate_surrounding_penalty(game: &Game, position: Option<Position>) -> i16 {
     match position {
         Some(p) => match game.get_piece(&p) {
-            Some(p) => if p.color != game.turn {
-                2
-            } else {
-                0
+            Some(p) => {
+                if p.color != game.turn {
+                    2
+                } else {
+                    0
+                }
             }
             None => 0,
-        }
+        },
         None => 0,
     }
 }
@@ -279,13 +322,15 @@ fn get_immediate_surrounding_penalty(game: &Game, position: Option<Position>) ->
 fn get_secondary_surrounding_penalty(game: &Game, position: Option<Position>) -> i16 {
     match position {
         Some(p) => match game.get_piece(&p) {
-            Some(p) => if p.color != game.turn {
-                1
-            } else {
-                0
+            Some(p) => {
+                if p.color != game.turn {
+                    1
+                } else {
+                    0
+                }
             }
             None => 0,
-        }
+        },
         None => 0,
     }
 }

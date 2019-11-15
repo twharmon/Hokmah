@@ -1,6 +1,6 @@
+use crate::cache::Cache;
 use crate::color::Color;
 use crate::game::Game;
-use crate::cache::Cache;
 use crate::{engine::search, params::Params};
 use std::io::Write;
 
@@ -66,11 +66,11 @@ pub fn train() {
                         };
                         println!("winning params overthrown");
                     }
-                    break
+                    break;
                 }
             }
             if games_played > 40 && diff <= std_dev * 0.75 {
-                break
+                break;
             }
         }
         println!("winning params: {}, test params: {}", a_wins, b_wins);

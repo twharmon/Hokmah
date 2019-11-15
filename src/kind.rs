@@ -8,7 +8,6 @@ pub enum Kind {
     King,
 }
 
-
 impl Kind {
     pub fn hash(&self) -> u64 {
         match self {

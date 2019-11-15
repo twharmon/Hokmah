@@ -1,7 +1,7 @@
-use std::sync::{Arc, Mutex};
 use crate::cache::Cache;
-use crate::game::Game;
 use crate::color::Color;
+use crate::game::Game;
+use std::sync::{Arc, Mutex};
 
 pub trait PushSome<T> {
     fn push_some(&mut self, item: Option<T>);

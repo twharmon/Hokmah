@@ -1,13 +1,13 @@
+use crate::cache::Cache;
+use crate::color::Color;
 use crate::file::File;
+use crate::game::Game;
 use crate::kind::Kind;
 use crate::piece::Piece;
-use crate::game::Game;
-use crate::color::Color;
 use crate::position::Position;
 use crate::traits::BestFirstSort;
 use std::ops::BitXor;
 use std::sync::{Arc, Mutex};
-use crate::cache::Cache;
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Ply {
@@ -21,11 +21,9 @@ pub struct Ply {
 impl Ply {
     pub fn uci(&self) -> String {
         format!(
-            "{}{}{}{}{}",
-            self.origin.file,
-            self.origin.rank,
-            self.destination.file,
-            self.destination.rank,
+            "{}{}{}",
+            self.origin,
+            self.destination,
             {
                 match self.promotion {
                     Some(p) => p.to_letter().to_lowercase(),
@@ -42,9 +40,12 @@ impl Ply {
         if let Some(t) = self.target {
             match g.board[destination_rank_usize][destination_file_usize] {
                 None => {
-                    let position = Position { rank: self.origin.rank, file: self.destination.file };
+                    let position = Position {
+                        rank: self.origin.rank,
+                        file: self.destination.file,
+                    };
                     hash = hash.bitxor(position.hash(&t));
-                },
+                }
                 Some(p) => hash = hash.bitxor(self.destination.hash(&p)),
             };
         }
@@ -60,14 +61,26 @@ impl Ply {
                 kind: Kind::Rook,
             };
             if self.destination.file == File::C {
-                let position = Position { file: File::A, rank: self.origin.rank };
+                let position = Position {
+                    file: File::A,
+                    rank: self.origin.rank,
+                };
                 hash = hash.bitxor(position.hash(&rook));
-                let position = Position { file: File::D, rank: self.origin.rank };
+                let position = Position {
+                    file: File::D,
+                    rank: self.origin.rank,
+                };
                 hash = hash.bitxor(position.hash(&rook));
             } else if self.destination.file == File::G {
-                let position = Position { file: File::H, rank: self.origin.rank };
+                let position = Position {
+                    file: File::H,
+                    rank: self.origin.rank,
+                };
                 hash = hash.bitxor(position.hash(&rook));
-                let position = Position { file: File::F, rank: self.origin.rank };
+                let position = Position {
+                    file: File::F,
+                    rank: self.origin.rank,
+                };
                 hash = hash.bitxor(position.hash(&rook));
             }
         }
@@ -86,41 +99,39 @@ impl Ply {
                 match self.target {
                     Some(_) => format!(
                         "{}x{}{}{}",
-                        self.origin.file,
-                        self.destination.file,
-                        self.destination.rank,
+                        self.origin.0,
+                        self.destination.0,
+                        self.destination.1,
                         promotion_str
                     ),
                     None => format!(
                         "{}{}{}",
-                        self.destination.file, self.destination.rank, promotion_str
+                        self.destination.0, self.destination.1, promotion_str
                     ),
                 }
             }
             _ => {
                 if self.piece.kind == Kind::King
-                    && (usize::from(self.origin.file) as i8
-                        - usize::from(self.destination.file) as i8)
+                    && (self.origin.0 as i8
+                        - self.destination.0 as i8)
                         .abs()
                         == 2
                 {
-                    match self.destination.file {
-                        File::C => return format!("O-O-O"),
+                    match self.destination.0 {
+                        2 => return format!("O-O-O"),
                         _ => return format!("O-O"),
                     };
                 }
                 match self.target {
                     Some(_) => format!(
-                        "{}x{}{}",
+                        "{}x{}",
                         self.piece.to_letter(),
-                        self.destination.file,
-                        self.destination.rank
+                        self.destination,
                     ),
                     None => format!(
-                        "{}{}{}",
+                        "{}{}",
                         self.piece.to_letter(),
-                        self.destination.file,
-                        self.destination.rank
+                        self.destination,
                     ),
                 }
             }
@@ -135,15 +146,15 @@ impl Ply {
                 continue;
             }
             if ply.naive_san() == naive_san {
-                if ply.origin.file != self.origin.file {
+                if ply.origin.0 != self.origin.0 {
                     let (san_a, san_b) = naive_san.split_at(1);
-                    return format!("{}{}{}", san_a, self.origin.file, san_b);
-                } else if ply.origin.rank != self.origin.rank {
+                    return format!("{}{}{}", san_a, self.origin.0, san_b);
+                } else if ply.origin.1 != self.origin.1 {
                     let (san_a, san_b) = naive_san.split_at(1);
-                    return format!("{}{}{}", san_a, self.origin.rank, san_b);
+                    return format!("{}{}{}", san_a, self.origin.1, san_b);
                 } else {
                     let (san_a, san_b) = naive_san.split_at(1);
-                    return format!("{}{}{}{}", san_a, self.origin.file, self.origin.rank, san_b);
+                    return format!("{}{}{}{}", san_a, self.origin.0, self.origin.1, san_b);
                 }
             }
         }
@@ -170,34 +181,29 @@ impl BestFirstSort for Vec<Ply> {
                 }
             });
         } else {
-            self.sort_unstable_by_key(|a| {
-                match a.promotion {
-                    Some(p) => 0 - p.naive_value(),
-                    None => match a.target {
-                        Some(t) => 0 - t.naive_value(),
-                        None => 0,
-                    },
-                }
+            self.sort_unstable_by_key(|a| match a.promotion {
+                Some(p) => 0 - p.naive_value(),
+                None => match a.target {
+                    Some(t) => 0 - t.naive_value(),
+                    None => 0,
+                },
             });
         }
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::tests::make_game;
-    use crate::params::Params;
-    use crate::cache::Cache;
-    use crate::kind::Kind;
-    use crate::color::Color;
-    use crate::position::Position;
-    use crate::file::File;
-    use crate::ply::Ply;
-    use crate::rank::Rank;
-    use crate::engine::search;
-    use crate::piece::Piece;
     use super::BestFirstSort;
+    use crate::cache::Cache;
+    use crate::color::Color;
+    use crate::engine::search;
+    use crate::kind::Kind;
+    use crate::params::Params;
+    use crate::piece::Piece;
+    use crate::ply::Ply;
+    use crate::position::Position;
+    use crate::tests::make_game;
     use test::Bencher;
 
     const MID_GAME_PGN: &'static str = "1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Bb5 a6 5. Bxc6 dxc6 6. d4 exd4 7. Nxd4 Bc5 8. Be3 O-O 9. Qd3 Bg4 10. f3 Bh5 11. g4 Bg6 12. O-O-O b5 13. Nf5 Bxe3+ 14. Qxe3 Qc8";
@@ -207,10 +213,16 @@ mod tests {
         let mut g = make_game("e4 e5 Nf3 Nc6 Nc3 Nf6 Bb5 a6 Bxc6 dxc6 d4 exd4");
 
         let ply = Ply {
-            origin: Position { file: File::F, rank: Rank::Three },
-            destination: Position { file: File::D, rank: Rank::Four },
-            piece: Piece { kind: Kind::Knight, color: Color::White },
-            target: Some(Piece { kind: Kind::Pawn, color: Color::Black }),
+            origin: Position(5, 2),
+            destination: Position(3, 3),
+            piece: Piece {
+                kind: Kind::Knight,
+                color: Color::White,
+            },
+            target: Some(Piece {
+                kind: Kind::Pawn,
+                color: Color::Black,
+            }),
             promotion: None,
         };
 
