@@ -7,19 +7,17 @@ use crate::ply::Ply;
 use crate::traits::BestFirstSort;
 use crossbeam::crossbeam_channel;
 use std::time::{Duration, SystemTime};
-use std::ops::{Sub, Div, BitXor};
-use crate::cache::Cache;
-use std::sync::{Arc, Mutex};
+use std::ops::{Sub, Div};
 use std::i16;
 
-pub fn suggest(g: Game, params: Params, limit: Duration, cache: &Arc<Mutex<Cache>>, future_cache: &Arc<Mutex<Cache>>) -> Ply {    
+pub fn suggest(g: Game, params: Params, limit: Duration) -> Ply {    
     let start = SystemTime::now();
     let mut depth = 2;
-    let mut ply = search(g.clone(), params, depth, 0, &cache, &future_cache);
+    let mut ply = search(g.clone(), params, depth, 0);
     
     while SystemTime::now().sub(limit.div(4)) < start {
         depth += 1;
-        ply = search(g.clone(), params, depth, 2, &cache, &future_cache);
+        ply = search(g.clone(), params, depth, 2);
     }
 
     println!("searched {} deep in {} secs (limit: {})", depth, SystemTime::now().duration_since(start).unwrap().as_secs_f32(), limit.as_secs_f32());
@@ -27,7 +25,7 @@ pub fn suggest(g: Game, params: Params, limit: Duration, cache: &Arc<Mutex<Cache
     ply
 }
 
-pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc<Mutex<Cache>>, future_cache: &Arc<Mutex<Cache>>) -> Ply {
+pub fn search(mut g: Game, params: Params, depth: u8, extension: u8) -> Ply {
     let valid_plies = g.get_valid_plies();
     let valid_ply_cnt = valid_plies.len();
 
@@ -35,37 +33,11 @@ pub fn search(mut g: Game, params: Params, depth: u8, extension: u8, cache: &Arc
     for ply in valid_plies {
         let sender = s.clone();
         let mut g = g.clone();
-        let cache = cache.clone();
-        let future_cache = future_cache.clone();
         std::thread::spawn(move || {
             let maximizing_color = g.turn;
             g.do_ply(ply, false);
-            let key = g.hash.bitxor(maximizing_color.hash());
-            let mut alpha_aspiration_window = 50;
-            let mut beta_aspiration_window = 50;
-            let (mut alpha, mut beta) = match future_cache.lock().unwrap().get(key) {
-                Some(a) => (a - alpha_aspiration_window, a + beta_aspiration_window),
-                None => (-30_000, 30_000),
-            };
-            loop {
-                let eval = minimax(depth - 1, &mut g, &params, alpha, beta, maximizing_color, extension, &cache, &future_cache);
-                if eval >= alpha && eval <= beta {
-                    sender.send((ply, eval)).expect("unable to send");
-                    future_cache.lock().unwrap().set(key, eval);
-                    break
-                }
-                if eval < alpha {
-                    alpha += alpha_aspiration_window;
-                    alpha_aspiration_window *= 2;
-                    beta = alpha;
-                    alpha = eval - alpha_aspiration_window;
-                } else {
-                    beta += beta_aspiration_window;
-                    beta_aspiration_window *= 2;
-                    alpha = beta;
-                    beta = eval + beta_aspiration_window;
-                }
-            }
+            let eval = minimax(depth - 1, &mut g, &params, -30_000, 30_000, maximizing_color, extension);
+            sender.send((ply, eval)).expect("unable to send");
         });
     }
 
@@ -93,44 +65,19 @@ fn minimax(
     mut beta: i16,
     maximizing_color: Color,
     mut extension: u8,
-    cache: &Arc<Mutex<Cache>>,
-    future_cache: &Arc<Mutex<Cache>>,
 ) -> i16 {
     if depth == 0 {
-        match cache.lock().unwrap().get(g.hash) {
-            Some(eval) => {
-                return if g.turn == maximizing_color {
-                    eval
-                } else {
-                    0 - eval
-                }
-            },
-            None => (),
-        };
         let eval = evaluate(g, params, maximizing_color);
-        cache.lock().unwrap().set(g.hash, if g.turn == maximizing_color { eval } else { 0 - eval });
         return eval;
     }
 
     let mut valid_plies = g.get_valid_plies();
     if valid_plies.is_empty() {
-        match cache.lock().unwrap().get(g.hash) {
-            Some(e) => {
-                let adjusted_eval = (e as f32 * (1f32 + (depth as f32 / 1000f32))) as i16;
-                return if g.turn == maximizing_color {
-                    adjusted_eval
-                } else {
-                    0 - adjusted_eval
-                }
-            },
-            None => (),
-        };
         let eval = evaluate(g, params, maximizing_color);
-        cache.lock().unwrap().set(g.hash, if g.turn == maximizing_color { eval } else { 0 - eval });
         return (eval as f32 * (1f32 + (depth as f32 / 1000f32))) as i16;
     }
 
-    valid_plies.best_first_sort(depth, g, maximizing_color, future_cache);
+    valid_plies.best_first_sort();
 
     if maximizing_color == g.turn {
         let mut best_ply = -30_000;
@@ -158,14 +105,8 @@ fn minimax(
                 beta,
                 maximizing_color,
                 extension,
-                cache,
-                future_cache,
             );
             best_ply = best_ply.max(eval);
-            if depth > 2 {
-                let key = g.hash.bitxor(maximizing_color.hash());
-                future_cache.lock().unwrap().set(key, eval);
-            }
             g.revert_last_ply();
             alpha = alpha.max(best_ply);
             if beta <= alpha {
@@ -199,14 +140,8 @@ fn minimax(
                 beta,
                 maximizing_color,
                 extension,
-                cache,
-                future_cache,
             );
             best_ply = best_ply.min(eval);
-            if depth > 2 {
-                let key = g.hash.bitxor(maximizing_color.hash());
-                future_cache.lock().unwrap().set(key, eval);
-            }
             g.revert_last_ply();
             beta = beta.min(best_ply);
             if beta <= alpha {
@@ -221,7 +156,6 @@ fn minimax(
 mod tests {
     use crate::tests::make_game;
     use crate::params::Params;
-    use crate::cache::Cache;
     use super::search;
     use test::Bencher;
 
@@ -231,7 +165,7 @@ mod tests {
     #[test]
     fn it_chooses_fools_mate() {
         let g = make_game("f4 e5 g4");
-        let ply = search(g, Params::get(), 2, 0, &Cache::new(), &Cache::new());
+        let ply = search(g, Params::get(), 2, 0);
         assert_eq!(ply.uci(), String::from("d8h4"));
     }
 
@@ -240,10 +174,8 @@ mod tests {
         let params = Params::get();
         let g = make_game(MID_GAME_PGN);
         b.iter(|| {
-            let cache = Cache::new();
-            let future_cache = Cache::new();
-            search(g.clone(), params, 1, 0, &cache, &future_cache);
-            search(g.clone(), params, 2, 0, &cache, &future_cache);
+            search(g.clone(), params, 1, 0);
+            search(g.clone(), params, 2, 0);
         });
     }
 
@@ -252,11 +184,9 @@ mod tests {
         let params = Params::get();
         let g = make_game(MID_GAME_PGN);
         b.iter(|| {
-            let cache = Cache::new();
-            let future_cache = Cache::new();
-            search(g.clone(), params, 1, 0, &cache, &future_cache);
-            search(g.clone(), params, 2, 0, &cache, &future_cache);
-            search(g.clone(), params, 3, 0, &cache, &future_cache);
+            search(g.clone(), params, 1, 0);
+            search(g.clone(), params, 2, 0);
+            search(g.clone(), params, 3, 0);
         });
     }
 
@@ -265,12 +195,10 @@ mod tests {
         let params = Params::get();
         let g = make_game(MID_GAME_PGN);
         b.iter(|| {
-            let cache = Cache::new();
-            let future_cache = Cache::new();
-            search(g.clone(), params, 1, 0, &cache, &future_cache);
-            search(g.clone(), params, 2, 0, &cache, &future_cache);
-            search(g.clone(), params, 3, 0, &cache, &future_cache);
-            search(g.clone(), params, 4, 0, &cache, &future_cache);
+            search(g.clone(), params, 1, 0);
+            search(g.clone(), params, 2, 0);
+            search(g.clone(), params, 3, 0);
+            search(g.clone(), params, 4, 0);
         });
     }
 
@@ -279,12 +207,10 @@ mod tests {
         let params = Params::get();
         let g = make_game(END_GAME_PGN);
         b.iter(|| {
-            let cache = Cache::new();
-            let future_cache = Cache::new();
-            search(g.clone(), params, 1, 0, &cache, &future_cache);
-            search(g.clone(), params, 2, 0, &cache, &future_cache);
-            search(g.clone(), params, 3, 0, &cache, &future_cache);
-            search(g.clone(), params, 4, 0, &cache, &future_cache);
+            search(g.clone(), params, 1, 0);
+            search(g.clone(), params, 2, 0);
+            search(g.clone(), params, 3, 0);
+            search(g.clone(), params, 4, 0);
         });
     }
 }

@@ -1,6 +1,5 @@
 use crate::color::Color;
 use crate::game::Game;
-use crate::cache::Cache;
 use crate::{engine::search, params::Params};
 use std::io::Write;
 
@@ -84,8 +83,6 @@ pub fn train() {
 
 fn play_game(white_params: Params, black_params: Params) -> Option<Color> {
     let g = &mut Game::new();
-    let cache = Cache::new();
-    let future_cache = Cache::new();
     loop {
         let mat = g.get_player_naive_material() + g.get_enemy_naive_material();
 
@@ -107,8 +104,6 @@ fn play_game(white_params: Params, black_params: Params) -> Option<Color> {
             },
             depth,
             1,
-            &cache,
-            &future_cache,
         );
 
         g.do_ply(ply, true);

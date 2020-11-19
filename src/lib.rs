@@ -24,7 +24,6 @@ mod position;
 mod rank;
 pub mod trainer;
 mod traits;
-pub mod cache;
 pub mod opening_book;
 
 #[cfg(test)]
@@ -48,11 +47,9 @@ mod tests {
     pub fn assert_reverts(history: &str, s: &str) {
         let mut g = make_game(history);
         let before = g.board;
-        let before_hash = g.hash;
         g.try_ply(s).unwrap();
         g.revert_last_ply();
         assert_eq!(g.board.eq(&before), true);
-        assert_eq!(g.hash, before_hash);
     }
 
     pub fn assert_draw(history: &str) {
